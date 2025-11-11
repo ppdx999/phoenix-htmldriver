@@ -6,26 +6,95 @@ defmodule PhoenixHtmldriver do
   HTML output without the overhead of a headless browser. It integrates seamlessly
   with Phoenix.ConnTest.
 
-  ## Examples
+  ## Usage
 
-      use MyAppWeb.ConnTest
+  Add `use PhoenixHtmldriver` to your test module to automatically configure
+  the endpoint and import all functions:
 
-      test "login flow", %{conn: conn} do
-        # Visit a page
-        session = visit(conn, "/login")
+      defmodule MyAppWeb.PageControllerTest do
+        use MyAppWeb.ConnCase
+        use PhoenixHtmldriver
 
-        # Fill and submit a form
-        session = session
-        |> fill_form("#login-form", username: "alice", password: "secret")
-        |> submit_form("#login-form")
+        test "login flow", %{conn: conn} do
+          # Visit a page
+          session = visit(conn, "/login")
 
-        # Assert on the response
-        assert_text(session, "Welcome, alice")
-        assert_selector(session, ".alert-success")
+          # Fill and submit a form
+          session
+          |> fill_form("#login-form", username: "alice", password: "secret")
+          |> submit_form("#login-form")
+          |> assert_text("Welcome, alice")
+          |> assert_selector(".alert-success")
+        end
+      end
+
+  The `use PhoenixHtmldriver` macro will:
+  1. Import all PhoenixHtmldriver functions
+  2. Automatically configure the Phoenix endpoint from `@endpoint` module attribute
+  3. Set up the conn with the endpoint in a setup block (if conn is not already provided)
+
+  ## Manual Configuration
+
+  If you need manual control, you can import functions directly:
+
+      defmodule MyAppWeb.PageControllerTest do
+        use MyAppWeb.ConnCase
+        import PhoenixHtmldriver
+
+        setup %{conn: conn} do
+          conn = Plug.Conn.put_private(conn, :phoenix_endpoint, MyAppWeb.Endpoint)
+          %{conn: conn}
+        end
+
+        test "login flow", %{conn: conn} do
+          session = visit(conn, "/login")
+          # ...
+        end
       end
   """
 
   alias PhoenixHtmldriver.Session
+
+  @doc """
+  Sets up PhoenixHtmldriver in your test module.
+
+  Automatically configures the endpoint and imports all functions.
+  """
+  defmacro __using__(_opts) do
+    quote do
+      import PhoenixHtmldriver
+
+      # Capture endpoint at compile time
+      @phoenix_htmldriver_endpoint Module.get_attribute(__MODULE__, :endpoint)
+
+      setup tags do
+        endpoint = @phoenix_htmldriver_endpoint
+
+        cond do
+          # If conn is already in tags and has endpoint, use it as-is
+          tags[:conn] && tags[:conn].private[:phoenix_endpoint] ->
+            :ok
+
+          # If conn is in tags but missing endpoint, add endpoint
+          tags[:conn] && endpoint ->
+            conn = Plug.Conn.put_private(tags[:conn], :phoenix_endpoint, endpoint)
+            %{conn: conn}
+
+          # If no conn in tags but endpoint is set, create conn with endpoint
+          endpoint ->
+            conn =
+              Phoenix.ConnTest.build_conn()
+              |> Plug.Conn.put_private(:phoenix_endpoint, endpoint)
+
+            %{conn: conn}
+
+          # No endpoint set, do nothing (will error later with helpful message)
+          true ->
+            :ok
+        end
+      end
+    end
+  end
 
   @doc """
   Visits a path and returns a new session.

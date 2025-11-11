@@ -24,23 +24,56 @@ end
 
 ## Usage
 
-### Basic Example
+### Basic Example with `use PhoenixHtmldriver` (Recommended)
+
+The easiest way to use PhoenixHtmldriver is with the `use PhoenixHtmldriver` macro, which automatically configures the endpoint:
+
+```elixir
+defmodule MyAppWeb.PageControllerTest do
+  use MyAppWeb.ConnCase
+  use PhoenixHtmldriver  # Automatically configures endpoint!
+
+  test "login flow", %{conn: conn} do
+    # No manual setup needed - conn is automatically configured
+    visit(conn, "/login")
+    |> fill_form("#login-form", username: "alice", password: "secret")
+    |> submit_form("#login-form")
+    |> assert_text("Welcome, alice")
+    |> assert_selector(".alert-success")
+  end
+end
+```
+
+**Important:** Make sure to set `@endpoint` **before** `use PhoenixHtmldriver`:
+
+```elixir
+defmodule MyTest do
+  use ExUnit.Case
+
+  @endpoint MyAppWeb.Endpoint  # Must come before use PhoenixHtmldriver
+  use PhoenixHtmldriver
+
+  # Tests...
+end
+```
+
+### Manual Configuration (Advanced)
+
+If you need more control, you can import functions directly:
 
 ```elixir
 defmodule MyAppWeb.PageControllerTest do
   use MyAppWeb.ConnCase
   import PhoenixHtmldriver
 
-  test "login flow", %{conn: conn} do
-    # Visit a page
-    session = visit(conn, "/login")
+  setup %{conn: conn} do
+    conn = Plug.Conn.put_private(conn, :phoenix_endpoint, MyAppWeb.Endpoint)
+    %{conn: conn}
+  end
 
-    # Fill and submit a form
-    session
-    |> fill_form("#login-form", username: "alice", password: "secret")
-    |> submit_form("#login-form")
-    |> assert_text("Welcome, alice")
-    |> assert_selector(".alert-success")
+  test "login flow", %{conn: conn} do
+    session = visit(conn, "/login")
+    # ...
   end
 end
 ```
@@ -228,7 +261,29 @@ end
 
 ## Setting Up in Your Tests
 
-To use PhoenixHtmldriver in your test cases, you need to ensure your conn has the endpoint set:
+### Option 1: Using `use PhoenixHtmldriver` (Recommended)
+
+The simplest way - just add `use PhoenixHtmldriver` after setting `@endpoint`:
+
+```elixir
+defmodule MyAppWeb.PageControllerTest do
+  use MyAppWeb.ConnCase
+
+  @endpoint MyAppWeb.Endpoint  # Must come first!
+  use PhoenixHtmldriver
+
+  # No setup needed - conn is automatically configured!
+
+  test "home page", %{conn: conn} do
+    visit(conn, "/")
+    |> assert_text("Welcome")
+  end
+end
+```
+
+### Option 2: Manual Setup
+
+If you need more control or prefer explicit configuration:
 
 ```elixir
 defmodule MyAppWeb.PageControllerTest do
@@ -236,8 +291,8 @@ defmodule MyAppWeb.PageControllerTest do
   import PhoenixHtmldriver
 
   setup %{conn: conn} do
-    conn = put_private(conn, :phoenix_endpoint, MyAppWeb.Endpoint)
-    {:ok, conn: conn}
+    conn = Plug.Conn.put_private(conn, :phoenix_endpoint, MyAppWeb.Endpoint)
+    %{conn: conn}
   end
 
   test "home page", %{conn: conn} do
