@@ -42,6 +42,52 @@ defmodule PhoenixHtmldriver.TestRouter do
     """)
   end
 
+  get "/search" do
+    query = conn.query_params["q"] || ""
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Search results for: #{query}</p>
+      </body>
+    </html>
+    """)
+  end
+
+  put "/update" do
+    name = conn.body_params["name"] || "unknown"
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Updated: #{name}</p>
+      </body>
+    </html>
+    """)
+  end
+
+  patch "/patch" do
+    value = conn.body_params["value"] || "default"
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Patched: #{value}</p>
+      </body>
+    </html>
+    """)
+  end
+
+  delete "/delete" do
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Deleted successfully</p>
+      </body>
+    </html>
+    """)
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
   end
