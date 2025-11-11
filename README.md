@@ -17,7 +17,7 @@ Add `phoenix_htmldriver` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:phoenix_htmldriver, "~> 0.4.0"}
+    {:phoenix_htmldriver, "~> 0.5.0"}
   ]
 end
 ```

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.5.0] - 2025-01-11
 
 ### Added
 - Proper `fill_form/3` implementation that stores values ([#4](https://github.com/ppdx999/phoenix-htmldriver/issues/4))
@@ -14,14 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports both keyword lists and nested maps
   - Values provided directly to `submit_form/3` override `fill_form/3` values
 - Added 4 new tests for fill_form/submit_form integration (total: 79 tests)
-- Enhanced documentation for `fill_form/3` with examples
+- Enhanced documentation for `fill_form/3` with examples and multiple usage patterns
 
 ### Changed
 - Added `:form_values` field to Session struct to store form data
 - `fill_form/3` now validates that the form exists and raises if not found
+- Updated README with comprehensive form filling examples
 
 ### Fixed
 - Fixed critical bug where `fill_form/3` values were not included in form submission ([#4](https://github.com/ppdx999/phoenix-htmldriver/issues/4))
+- Library is now usable for its primary purpose of form testing
 
 ## [0.4.0] - 2025-01-11
 
@@ -100,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.5.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.1.0...v0.2.0
