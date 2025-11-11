@@ -9,14 +9,25 @@ defmodule PhoenixHtmldriver.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "A lightweight Phoenix library for testing pure HTML with human-like interactions",
-      package: package()
+      package: package(),
+      docs: docs(),
+      source_url: "https://github.com/ppdx999/phoenix-htmldriver"
     ]
   end
 
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/ppdx999/phoenix-htmldriver"}
+      links: %{"GitHub" => "https://github.com/ppdx999/phoenix-htmldriver"},
+      maintainers: ["ppdx999"],
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
+    ]
+  end
+
+  defp docs do
+    [
+      main: "PhoenixHtmldriver",
+      extras: ["README.md"]
     ]
   end
 
@@ -32,7 +43,8 @@ defmodule PhoenixHtmldriver.MixProject do
     [
       {:floki, "~> 0.36.0"},
       {:phoenix, "~> 1.7"},
-      {:plug, "~> 1.14"}
+      {:plug, "~> 1.14"},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
     ]
   end
 end
