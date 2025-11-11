@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Proper `fill_form/3` implementation that stores values ([#4](https://github.com/ppdx999/phoenix-htmldriver/issues/4))
+  - `fill_form/3` now stores form values in the session
+  - Values are automatically included when `submit_form/3` is called
+  - Supports both keyword lists and nested maps
+  - Values provided directly to `submit_form/3` override `fill_form/3` values
+- Added 4 new tests for fill_form/submit_form integration (total: 79 tests)
+- Enhanced documentation for `fill_form/3` with examples
+
+### Changed
+- Added `:form_values` field to Session struct to store form data
+- `fill_form/3` now validates that the form exists and raises if not found
+
+### Fixed
+- Fixed critical bug where `fill_form/3` values were not included in form submission ([#4](https://github.com/ppdx999/phoenix-htmldriver/issues/4))
+
 ## [0.4.0] - 2025-01-11
 
 ### Added

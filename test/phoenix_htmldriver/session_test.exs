@@ -390,12 +390,71 @@ defmodule PhoenixHtmldriver.SessionTest do
   end
 
   describe "fill_form/3" do
-    test "returns session unchanged (simplified implementation)" do
+    test "stores form values in session" do
       conn = build_test_conn()
       session = Session.visit(conn, "/home")
 
-      result = Session.fill_form(session, "#form", field: "value")
-      assert result == session
+      # fill_form should raise if form not found
+      assert_raise RuntimeError, ~r/Form not found/, fn ->
+        Session.fill_form(session, "#nonexistent-form", field: "value")
+      end
+    end
+
+    test "fills and submits form with values" do
+      conn = build_test_conn()
+
+      session =
+        Session.visit(conn, "/login-form")
+        |> Session.fill_form("#login-form", username: "alice")
+        |> Session.submit_form("#login-form")
+
+      # The username should be included in the submission
+      assert Session.current_html(session) =~ "Logged in as: alice"
+      assert Session.current_html(session) =~ "Form was loaded: true"
+    end
+
+    test "submit_form values override fill_form values" do
+      conn = build_test_conn()
+
+      session =
+        Session.visit(conn, "/login-form")
+        |> Session.fill_form("#login-form", username: "alice")
+        |> Session.submit_form("#login-form", username: "bob")
+
+      # bob should override alice
+      assert Session.current_html(session) =~ "Logged in as: bob"
+    end
+
+    test "supports nested map values" do
+      conn = build_test_conn()
+
+      html = """
+      <html>
+        <body>
+          <form id="test-form" action="/login" method="post">
+            <input type="text" name="user[email]" />
+            <input type="password" name="user[password]" />
+          </form>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint,
+        cookies: %{},
+        form_values: %{}
+      }
+
+      result = Session.fill_form(session, "#test-form", %{user: %{email: "test@example.com", password: "secret"}})
+
+      # Check that values are stored
+      assert result.form_values["#test-form"] == %{user: %{email: "test@example.com", password: "secret"}}
     end
   end
 

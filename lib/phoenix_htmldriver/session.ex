@@ -9,14 +9,15 @@ defmodule PhoenixHtmldriver.Session do
 
   import ExUnit.Assertions
 
-  defstruct [:conn, :document, :response, :endpoint, :cookies]
+  defstruct [:conn, :document, :response, :endpoint, :cookies, :form_values]
 
   @type t :: %__MODULE__{
           conn: Plug.Conn.t(),
           document: Floki.html_tree(),
           response: Plug.Conn.t(),
           endpoint: module(),
-          cookies: map()
+          cookies: map(),
+          form_values: map()
         }
 
   @doc """
@@ -51,18 +52,44 @@ defmodule PhoenixHtmldriver.Session do
       document: document,
       response: response,
       endpoint: endpoint,
-      cookies: cookies
+      cookies: cookies,
+      form_values: %{}
     }
   end
 
   @doc """
   Fills in a form with the given values.
+
+  Stores the values in the session so they can be submitted later with `submit_form/3`.
+  The values are associated with the form selector.
+
+  ## Examples
+
+      session
+      |> fill_form("#login-form", email: "user@example.com", password: "secret")
+      |> submit_form("#login-form")  # Values are automatically included
+
+      # Can also use nested maps
+      session
+      |> fill_form("form", %{user: %{email: "test@example.com"}})
+      |> submit_form("form")
   """
-  @spec fill_form(t(), String.t(), keyword()) :: t()
-  def fill_form(%__MODULE__{} = session, _selector, _values) do
-    # For now, just store the values in session for submit_form to use
-    # This is a simplified implementation
-    session
+  @spec fill_form(t(), String.t(), keyword() | map()) :: t()
+  def fill_form(%__MODULE__{document: document, form_values: form_values} = session, selector, values) do
+    # Validate that the form exists
+    form = Floki.find(document, selector)
+
+    if Enum.empty?(form) do
+      raise "Form not found: #{selector}"
+    end
+
+    # Convert keyword list to map for consistent handling
+    values_map = Enum.into(values, %{})
+
+    # Store the values associated with this form selector
+    new_form_values = Map.put(form_values || %{}, selector, values_map)
+
+    %{session | form_values: new_form_values}
   end
 
   @doc """
@@ -98,8 +125,8 @@ defmodule PhoenixHtmldriver.Session do
       session
       |> submit_form("#search-form", q: "elixir")
   """
-  @spec submit_form(t(), String.t(), keyword()) :: t()
-  def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies} = _session, selector, values \\ []) do
+  @spec submit_form(t(), String.t(), keyword() | map()) :: t()
+  def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies, form_values: stored_form_values} = _session, selector, values \\ []) do
     # Find the form
     form = Floki.find(document, selector)
 
@@ -114,23 +141,29 @@ defmodule PhoenixHtmldriver.Session do
     method = get_attribute(form_node, "method") || "get"
     method_atom = String.downcase(method) |> String.to_atom()
 
+    # Get stored values from fill_form for this selector
+    stored_values = Map.get(stored_form_values || %{}, selector, %{})
+
+    # Convert values parameter to map
+    submit_values = Enum.into(values, %{})
+
+    # Merge stored values with submit values (submit values take precedence)
+    merged_values = Map.merge(stored_values, submit_values)
+
     # Extract CSRF token from form or document
     csrf_token = extract_csrf_token(form_node, document)
 
     # Merge CSRF token into values if present and method requires it
     form_values =
       if csrf_token && method_atom in [:post, :put, :patch, :delete] do
-        # Convert keyword list to map for easier manipulation
-        values_map = Enum.into(values, %{})
-
         # Only add CSRF token if not already present
-        if Map.has_key?(values_map, "_csrf_token") || Map.has_key?(values_map, :_csrf_token) do
-          values
+        if Map.has_key?(merged_values, "_csrf_token") || Map.has_key?(merged_values, :_csrf_token) do
+          merged_values
         else
-          [{"_csrf_token", csrf_token} | values]
+          Map.put(merged_values, "_csrf_token", csrf_token)
         end
       else
-        values
+        merged_values
       end
 
     # Submit the form using Plug.Test directly
@@ -172,7 +205,8 @@ defmodule PhoenixHtmldriver.Session do
       document: new_document,
       response: response,
       endpoint: endpoint,
-      cookies: new_cookies
+      cookies: new_cookies,
+      form_values: %{}  # Reset form values after submission
     }
   end
 
@@ -245,7 +279,8 @@ defmodule PhoenixHtmldriver.Session do
       document: new_document,
       response: response,
       endpoint: endpoint,
-      cookies: new_cookies
+      cookies: new_cookies,
+      form_values: %{}  # Reset form values after navigation
     }
   end
 

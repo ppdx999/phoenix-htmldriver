@@ -97,21 +97,33 @@ path = current_path(session)
 ### Forms
 
 ```elixir
-# Fill in a form (prepares values)
+# Fill in a form (stores values for later submission)
 session = fill_form(session, "#contact-form",
   name: "Alice",
   email: "alice@example.com",
   message: "Hello!"
 )
 
-# Submit a form
+# Submit the form - values from fill_form are automatically included
 session = submit_form(session, "#contact-form")
 
-# Or submit with values directly
-session = submit_form(session, "#contact-form",
-  name: "Alice",
-  email: "alice@example.com"
-)
+# Or combine fill_form and submit_form
+session =
+  fill_form(session, "#login-form", email: "user@example.com", password: "secret")
+  |> submit_form("#login-form")
+
+# Can also submit with values directly (without fill_form)
+session = submit_form(session, "#search-form", q: "elixir")
+
+# Values in submit_form override values from fill_form
+session =
+  fill_form(session, "form", username: "alice")
+  |> submit_form("form", username: "bob")  # "bob" wins
+
+# Supports nested maps for complex forms
+session =
+  fill_form(session, "form", %{user: %{email: "test@example.com", password: "secret"}})
+  |> submit_form("form")
 
 # CSRF tokens are automatically extracted and included!
 # No manual CSRF handling needed for forms with CSRF protection
