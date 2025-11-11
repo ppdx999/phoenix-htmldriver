@@ -58,6 +58,36 @@ defmodule PhoenixHtmldriver.Session do
 
   @doc """
   Submits a form.
+
+  Automatically extracts and includes CSRF token from the form if present.
+  This helps prevent `Plug.CSRFProtection.InvalidCSRFTokenError` when testing
+  forms with CSRF protection.
+
+  ## CSRF Token Extraction
+
+  The CSRF token is looked up in the following order:
+  1. Hidden input field with name="_csrf_token" within the form
+  2. Meta tag with name="csrf-token" in the document head
+
+  The token is automatically added to form values for POST, PUT, PATCH, and DELETE
+  requests. GET requests do not include CSRF tokens.
+
+  If you provide your own `_csrf_token` value, it will not be overridden.
+
+  ## Examples
+
+      # CSRF token is automatically extracted and included
+      session
+      |> visit(conn, "/login")
+      |> submit_form("#login-form", email: "test@example.com", password: "secret")
+
+      # Override CSRF token if needed
+      session
+      |> submit_form("form", _csrf_token: "custom-token", email: "test@example.com")
+
+      # Forms without CSRF tokens work normally
+      session
+      |> submit_form("#search-form", q: "elixir")
   """
   @spec submit_form(t(), String.t(), keyword()) :: t()
   def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint} = _session, selector, values \\ []) do
@@ -75,23 +105,42 @@ defmodule PhoenixHtmldriver.Session do
     method = get_attribute(form_node, "method") || "get"
     method_atom = String.downcase(method) |> String.to_atom()
 
+    # Extract CSRF token from form or document
+    csrf_token = extract_csrf_token(form_node, document)
+
+    # Merge CSRF token into values if present and method requires it
+    form_values =
+      if csrf_token && method_atom in [:post, :put, :patch, :delete] do
+        # Convert keyword list to map for easier manipulation
+        values_map = Enum.into(values, %{})
+
+        # Only add CSRF token if not already present
+        if Map.has_key?(values_map, "_csrf_token") || Map.has_key?(values_map, :_csrf_token) do
+          values
+        else
+          [{"_csrf_token", csrf_token} | values]
+        end
+      else
+        values
+      end
+
     # Submit the form using Plug.Test directly
     response =
       case method_atom do
         :post ->
-          Plug.Test.conn(:post, action, values)
+          Plug.Test.conn(:post, action, form_values)
           |> endpoint.call([])
 
         :get ->
-          Plug.Test.conn(:get, action <> "?" <> URI.encode_query(values))
+          Plug.Test.conn(:get, action <> "?" <> URI.encode_query(form_values))
           |> endpoint.call([])
 
         :put ->
-          Plug.Test.conn(:put, action, values)
+          Plug.Test.conn(:put, action, form_values)
           |> endpoint.call([])
 
         :patch ->
-          Plug.Test.conn(:patch, action, values)
+          Plug.Test.conn(:patch, action, form_values)
           |> endpoint.call([])
 
         :delete ->
@@ -107,6 +156,32 @@ defmodule PhoenixHtmldriver.Session do
       response: response,
       endpoint: endpoint
     }
+  end
+
+  # Extract CSRF token from form or document
+  defp extract_csrf_token(form_node, document) do
+    # Try to find CSRF token in form's hidden input
+    case Floki.find(form_node, "input[name='_csrf_token']") do
+      [input | _] ->
+        case get_attribute(input, "value") do
+          nil -> extract_csrf_from_meta(document)
+          token -> token
+        end
+
+      [] ->
+        extract_csrf_from_meta(document)
+    end
+  end
+
+  # Extract CSRF token from meta tag
+  defp extract_csrf_from_meta(document) do
+    case Floki.find(document, "meta[name='csrf-token']") do
+      [meta | _] ->
+        get_attribute(meta, "content")
+
+      [] ->
+        nil
+    end
   end
 
   @doc """

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Automatic CSRF token extraction and submission ([#2](https://github.com/ppdx999/phoenix-htmldriver/issues/2))
+  - `submit_form/3` now automatically extracts CSRF tokens from forms
+  - Looks for `_csrf_token` hidden input field first
+  - Falls back to `<meta name="csrf-token">` tag if not found in form
+  - Automatically includes token for POST, PUT, PATCH, and DELETE requests
+  - User-provided tokens are never overridden
+- Added 5 new tests for CSRF token handling
+- Added comprehensive documentation about CSRF protection in README
+
+### Changed
+- Enhanced `submit_form/3` function in `Session` module with CSRF token extraction
+- Updated README with CSRF protection section and examples
+
+### Fixed
+- Fixed CSRF protection errors when submitting forms ([#2](https://github.com/ppdx999/phoenix-htmldriver/issues/2))
+
 ## [0.2.0] - 2025-01-11
 
 ### Added

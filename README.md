@@ -112,6 +112,9 @@ session = submit_form(session, "#contact-form",
   name: "Alice",
   email: "alice@example.com"
 )
+
+# CSRF tokens are automatically extracted and included!
+# No manual CSRF handling needed for forms with CSRF protection
 ```
 
 ### Assertions
@@ -176,6 +179,26 @@ path = current_path(session)
 - `PhoenixHtmldriver.Element.text(element)` - Get element text content
 - `PhoenixHtmldriver.Element.attr(element, name)` - Get attribute value
 - `PhoenixHtmldriver.Element.has_attr?(element, name)` - Check if attribute exists
+
+## CSRF Protection
+
+PhoenixHtmldriver automatically handles CSRF tokens for you! When submitting forms, it:
+
+1. Looks for a hidden `_csrf_token` input field within the form
+2. Falls back to a `<meta name="csrf-token">` tag in the document head
+3. Automatically includes the token in POST, PUT, PATCH, and DELETE requests
+4. Never overrides tokens you explicitly provide
+
+This means you can test forms with CSRF protection without any extra setup:
+
+```elixir
+test "login with CSRF protection", %{conn: conn} do
+  visit(conn, "/login")
+  |> submit_form("#login-form", email: "user@example.com", password: "secret")
+  |> assert_text("Welcome back!")
+  # CSRF token was automatically extracted and included!
+end
+```
 
 ## How It Works
 

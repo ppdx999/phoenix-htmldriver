@@ -398,4 +398,93 @@ defmodule PhoenixHtmldriver.SessionTest do
       assert result == session
     end
   end
+
+  describe "CSRF token handling" do
+    setup do
+      conn = build_test_conn()
+      {:ok, conn: conn}
+    end
+
+    test "automatically extracts and includes CSRF token from hidden input", %{conn: conn} do
+      session = Session.visit(conn, "/form-with-csrf")
+
+      new_session = Session.submit_form(session, "#csrf-form", message: "Hello")
+
+      assert Session.current_html(new_session) =~ "CSRF valid: Hello"
+    end
+
+    test "automatically extracts CSRF token from meta tag when not in form", %{conn: conn} do
+      session = Session.visit(conn, "/form-with-meta-csrf")
+
+      new_session = Session.submit_form(session, "#meta-csrf-form", data: "test data")
+
+      assert Session.current_html(new_session) =~ "Meta CSRF valid: test data"
+    end
+
+    test "does not override user-provided CSRF token", %{conn: conn} do
+      session = Session.visit(conn, "/form-with-csrf")
+
+      # User explicitly provides wrong token
+      new_session = Session.submit_form(session, "#csrf-form", _csrf_token: "wrong-token", message: "Hello")
+
+      # Should use user-provided token (wrong), so validation fails
+      assert new_session.response.status == 403
+      assert Session.current_html(new_session) =~ "CSRF token invalid or missing"
+    end
+
+    test "works with forms that don't have CSRF tokens", %{conn: conn} do
+      # No error should occur when form has no CSRF token
+      html = """
+      <html>
+        <body>
+          <form id="simple-form" action="/search" method="get">
+            <input type="text" name="q" />
+          </form>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint
+      }
+
+      new_session = Session.submit_form(session, "#simple-form", q: "test")
+      assert Session.current_html(new_session) =~ "Search results for: test"
+    end
+
+    test "only adds CSRF token for POST/PUT/PATCH/DELETE methods", %{conn: conn} do
+      # GET request should not include CSRF token even if meta tag is present
+      html = """
+      <html>
+        <head>
+          <meta name="csrf-token" content="should-not-be-included">
+        </head>
+        <body>
+          <form id="get-form" action="/search" method="get">
+            <input type="text" name="q" />
+          </form>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint
+      }
+
+      new_session = Session.submit_form(session, "#get-form", q: "search")
+      assert Session.current_html(new_session) =~ "Search results for: search"
+    end
+  end
 end
