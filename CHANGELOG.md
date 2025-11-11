@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2025-01-11
 
 ### Added
 - Session cookie preservation across requests ([#3](https://github.com/ppdx999/phoenix-htmldriver/issues/3))
@@ -14,13 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatically extracts cookies from responses and includes them in subsequent requests
   - Properly handles `secret_key_base` for session cookie encryption
 - Added 4 new tests for session cookie preservation (total: 76 tests)
+- Added comprehensive documentation about session and cookie handling in README
 
 ### Changed
 - Updated Session struct to include `:cookies` field
 - Modified all request functions to preserve and restore cookies
+- Enhanced Session module documentation
 
 ### Fixed
 - Fixed session cookie loss between requests that prevented CSRF validation ([#3](https://github.com/ppdx999/phoenix-htmldriver/issues/3))
+- Enabled testing of real Phoenix applications with session-based CSRF protection
 
 ## [0.3.0] - 2025-01-11
 
@@ -79,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.4.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ppdx999/phoenix-htmldriver/releases/tag/v0.1.0
