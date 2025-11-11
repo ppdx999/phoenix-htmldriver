@@ -180,6 +180,26 @@ path = current_path(session)
 - `PhoenixHtmldriver.Element.attr(element, name)` - Get attribute value
 - `PhoenixHtmldriver.Element.has_attr?(element, name)` - Check if attribute exists
 
+## Session and Cookie Handling
+
+PhoenixHtmldriver automatically preserves session cookies across requests, enabling you to test multi-step flows naturally:
+
+```elixir
+test "login flow with session", %{conn: conn} do
+  visit(conn, "/login")
+  |> submit_form("#login-form", email: "user@example.com", password: "secret")
+  |> assert_text("Welcome back!")
+  |> click_link("Profile")
+  |> assert_text("user@example.com")
+  # Session cookies are automatically preserved throughout!
+end
+```
+
+**How it works:**
+- Session cookies from responses are automatically extracted
+- Subsequent requests (`visit`, `click_link`, `submit_form`) include these cookies
+- This enables proper session-based authentication and CSRF validation
+
 ## CSRF Protection
 
 PhoenixHtmldriver automatically handles CSRF tokens for you! When submitting forms, it:
@@ -188,6 +208,7 @@ PhoenixHtmldriver automatically handles CSRF tokens for you! When submitting for
 2. Falls back to a `<meta name="csrf-token">` tag in the document head
 3. Automatically includes the token in POST, PUT, PATCH, and DELETE requests
 4. Never overrides tokens you explicitly provide
+5. **Works seamlessly with session cookies** to ensure tokens validate correctly
 
 This means you can test forms with CSRF protection without any extra setup:
 
@@ -196,7 +217,7 @@ test "login with CSRF protection", %{conn: conn} do
   visit(conn, "/login")
   |> submit_form("#login-form", email: "user@example.com", password: "secret")
   |> assert_text("Welcome back!")
-  # CSRF token was automatically extracted and included!
+  # Both CSRF token AND session cookie were automatically handled!
 end
 ```
 

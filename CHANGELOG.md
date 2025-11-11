@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Session cookie preservation across requests ([#3](https://github.com/ppdx999/phoenix-htmldriver/issues/3))
+  - Session cookies are now automatically preserved across `visit`, `click_link`, and `submit_form` calls
+  - Added `:cookies` field to Session struct to store cookies
+  - Automatically extracts cookies from responses and includes them in subsequent requests
+  - Properly handles `secret_key_base` for session cookie encryption
+- Added 4 new tests for session cookie preservation (total: 76 tests)
+
+### Changed
+- Updated Session struct to include `:cookies` field
+- Modified all request functions to preserve and restore cookies
+
+### Fixed
+- Fixed session cookie loss between requests that prevented CSRF validation ([#3](https://github.com/ppdx999/phoenix-htmldriver/issues/3))
+
 ## [0.3.0] - 2025-01-11
 
 ### Added

@@ -1,17 +1,22 @@
 defmodule PhoenixHtmldriver.Session do
   @moduledoc """
   Represents a browser session for testing Phoenix applications.
+
+  Session automatically preserves cookies across requests, enabling proper
+  session handling and CSRF token validation. Each request (`visit`, `click_link`,
+  `submit_form`) carries forward cookies from the previous response.
   """
 
   import ExUnit.Assertions
 
-  defstruct [:conn, :document, :response, :endpoint]
+  defstruct [:conn, :document, :response, :endpoint, :cookies]
 
   @type t :: %__MODULE__{
           conn: Plug.Conn.t(),
           document: Floki.html_tree(),
           response: Plug.Conn.t(),
-          endpoint: module()
+          endpoint: module(),
+          cookies: map()
         }
 
   @doc """
@@ -33,16 +38,20 @@ defmodule PhoenixHtmldriver.Session do
 
     # Use Plug.Test functions directly instead of Phoenix.ConnTest dispatch
     response =
-      Plug.Test.conn(:get, path)
+      build_test_conn(:get, path, endpoint)
       |> endpoint.call([])
 
     {:ok, document} = Floki.parse_document(response.resp_body)
+
+    # Extract cookies from response to preserve session
+    cookies = extract_cookies(response)
 
     %__MODULE__{
       conn: conn,
       document: document,
       response: response,
-      endpoint: endpoint
+      endpoint: endpoint,
+      cookies: cookies
     }
   end
 
@@ -90,7 +99,7 @@ defmodule PhoenixHtmldriver.Session do
       |> submit_form("#search-form", q: "elixir")
   """
   @spec submit_form(t(), String.t(), keyword()) :: t()
-  def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint} = _session, selector, values \\ []) do
+  def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies} = _session, selector, values \\ []) do
     # Find the form
     form = Floki.find(document, selector)
 
@@ -128,33 +137,42 @@ defmodule PhoenixHtmldriver.Session do
     response =
       case method_atom do
         :post ->
-          Plug.Test.conn(:post, action, form_values)
+          build_test_conn(:post, action, endpoint, form_values)
+          |> put_cookies(cookies)
           |> endpoint.call([])
 
         :get ->
-          Plug.Test.conn(:get, action <> "?" <> URI.encode_query(form_values))
+          build_test_conn(:get, action <> "?" <> URI.encode_query(form_values), endpoint)
+          |> put_cookies(cookies)
           |> endpoint.call([])
 
         :put ->
-          Plug.Test.conn(:put, action, form_values)
+          build_test_conn(:put, action, endpoint, form_values)
+          |> put_cookies(cookies)
           |> endpoint.call([])
 
         :patch ->
-          Plug.Test.conn(:patch, action, form_values)
+          build_test_conn(:patch, action, endpoint, form_values)
+          |> put_cookies(cookies)
           |> endpoint.call([])
 
         :delete ->
-          Plug.Test.conn(:delete, action)
+          build_test_conn(:delete, action, endpoint)
+          |> put_cookies(cookies)
           |> endpoint.call([])
       end
 
     {:ok, new_document} = Floki.parse_document(response.resp_body)
 
+    # Extract new cookies from response
+    new_cookies = extract_cookies(response)
+
     %__MODULE__{
       conn: conn,
       document: new_document,
       response: response,
-      endpoint: endpoint
+      endpoint: endpoint,
+      cookies: new_cookies
     }
   end
 
@@ -188,7 +206,7 @@ defmodule PhoenixHtmldriver.Session do
   Clicks a link.
   """
   @spec click_link(t(), String.t()) :: t()
-  def click_link(%__MODULE__{conn: conn, document: document, endpoint: endpoint} = _session, selector_or_text) do
+  def click_link(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies} = _session, selector_or_text) do
     # Try to find link by selector first
     link =
       case Floki.find(document, selector_or_text) do
@@ -213,16 +231,21 @@ defmodule PhoenixHtmldriver.Session do
     href = get_attribute(link, "href") || "/"
 
     response =
-      Plug.Test.conn(:get, href)
+      build_test_conn(:get, href, endpoint)
+      |> put_cookies(cookies)
       |> endpoint.call([])
 
     {:ok, new_document} = Floki.parse_document(response.resp_body)
+
+    # Extract new cookies from response
+    new_cookies = extract_cookies(response)
 
     %__MODULE__{
       conn: conn,
       document: new_document,
       response: response,
-      endpoint: endpoint
+      endpoint: endpoint,
+      cookies: new_cookies
     }
   end
 
@@ -302,6 +325,37 @@ defmodule PhoenixHtmldriver.Session do
     case Floki.attribute(node, name) do
       [value | _] -> value
       [] -> nil
+    end
+  end
+
+  # Extract cookies from response
+  defp extract_cookies(response) do
+    response.resp_cookies
+  end
+
+  # Put cookies into request
+  defp put_cookies(conn, nil), do: conn
+  defp put_cookies(conn, cookies) when map_size(cookies) == 0, do: conn
+
+  defp put_cookies(conn, cookies) do
+    Enum.reduce(cookies, conn, fn {name, cookie}, conn ->
+      Plug.Test.put_req_cookie(conn, to_string(name), cookie.value)
+    end)
+  end
+
+  # Create a test conn with secret_key_base if needed
+  defp build_test_conn(method, path, endpoint, body_or_params \\ nil) do
+    conn =
+      case body_or_params do
+        nil -> Plug.Test.conn(method, path)
+        params -> Plug.Test.conn(method, path, params)
+      end
+
+    # Set secret_key_base if the endpoint has one (needed for session cookies)
+    if endpoint_secret = endpoint.config(:secret_key_base) do
+      put_in(conn.secret_key_base, endpoint_secret)
+    else
+      conn
     end
   end
 end

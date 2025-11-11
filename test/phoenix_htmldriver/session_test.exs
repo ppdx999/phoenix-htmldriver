@@ -399,6 +399,57 @@ defmodule PhoenixHtmldriver.SessionTest do
     end
   end
 
+  describe "session cookie preservation" do
+    setup do
+      conn = build_test_conn()
+      {:ok, conn: conn}
+    end
+
+    test "preserves session cookies across requests when clicking links", %{conn: conn} do
+      # Visit page that sets a session value
+      session = Session.visit(conn, "/set-session")
+      assert Session.current_html(session) =~ "Session set"
+
+      # Click link to another page - session should be preserved
+      new_session = Session.click_link(session, "Check Session")
+      assert Session.current_html(new_session) =~ "User ID: test_user_123"
+    end
+
+    test "preserves session cookies when submitting forms", %{conn: conn} do
+      # Visit page that sets session and shows form
+      session = Session.visit(conn, "/login-form")
+
+      # Submit form - session from page load should be preserved
+      new_session = Session.submit_form(session, "#login-form", username: "alice")
+
+      # Both the form_loaded session value and new username should be present
+      assert Session.current_html(new_session) =~ "Logged in as: alice"
+      assert Session.current_html(new_session) =~ "Form was loaded: true"
+    end
+
+    test "cookies field is populated in session", %{conn: conn} do
+      session = Session.visit(conn, "/set-session")
+
+      # Session should have cookies
+      assert session.cookies != nil
+      assert is_map(session.cookies)
+    end
+
+    test "updates cookies after each request", %{conn: conn} do
+      # First request
+      session1 = Session.visit(conn, "/set-session")
+      cookies1 = session1.cookies
+
+      # Second request should have updated cookies
+      session2 = Session.click_link(session1, "Check Session")
+      cookies2 = session2.cookies
+
+      # Both should have cookies (though they may be the same or updated)
+      assert cookies1 != nil
+      assert cookies2 != nil
+    end
+  end
+
   describe "CSRF token handling" do
     setup do
       conn = build_test_conn()

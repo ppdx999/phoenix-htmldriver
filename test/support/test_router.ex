@@ -1,12 +1,25 @@
 defmodule PhoenixHtmldriver.TestRouter do
   use Plug.Router
 
+  def config(:secret_key_base) do
+    "test_secret_key_base_that_is_at_least_64_bytes_long_for_security_purposes"
+  end
+
+  def config(_key), do: nil
+
+  plug(Plug.Session,
+    store: :cookie,
+    key: "_test_session",
+    signing_salt: "test_salt"
+  )
+
   plug(Plug.Parsers,
     parsers: [:urlencoded, :multipart],
     pass: ["*/*"]
   )
 
   plug(:match)
+  plug(:fetch_session)
   plug(:dispatch)
 
   get "/home" do
@@ -171,6 +184,65 @@ defmodule PhoenixHtmldriver.TestRouter do
       </html>
       """)
     end
+  end
+
+  get "/set-session" do
+    # Set a value in the session
+    conn = put_session(conn, :user_id, "test_user_123")
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Session set</p>
+        <a href="/check-session">Check Session</a>
+      </body>
+    </html>
+    """)
+  end
+
+  get "/check-session" do
+    # Check if session value is preserved
+    user_id = get_session(conn, :user_id)
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>User ID: #{user_id || "not set"}</p>
+      </body>
+    </html>
+    """)
+  end
+
+  get "/login-form" do
+    # Return a login form with session
+    conn = put_session(conn, :form_loaded, true)
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <form id="login-form" action="/do-login" method="post">
+          <input type="text" name="username">
+          <button type="submit">Login</button>
+        </form>
+      </body>
+    </html>
+    """)
+  end
+
+  post "/do-login" do
+    username = conn.body_params["username"] || "guest"
+    form_loaded = get_session(conn, :form_loaded)
+
+    conn = put_session(conn, :username, username)
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Logged in as: #{username}</p>
+        <p>Form was loaded: #{form_loaded}</p>
+      </body>
+    </html>
+    """)
   end
 
   match _ do
