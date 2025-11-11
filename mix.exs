@@ -4,7 +4,7 @@ defmodule PhoenixHtmldriver.MixProject do
   def project do
     [
       app: :phoenix_htmldriver,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -20,7 +20,7 @@ defmodule PhoenixHtmldriver.MixProject do
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/ppdx999/phoenix-htmldriver"},
       maintainers: ["ppdx999"],
-      files: ~w(lib .formatter.exs mix.exs README.md LICENSE)
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE CHANGELOG.md)
     ]
   end
 
