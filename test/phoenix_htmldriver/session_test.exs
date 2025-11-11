@@ -509,6 +509,119 @@ defmodule PhoenixHtmldriver.SessionTest do
     end
   end
 
+  describe "automatic redirect following" do
+    setup do
+      conn = build_test_conn()
+      {:ok, conn: conn}
+    end
+
+    test "visit follows redirects automatically", %{conn: conn} do
+      session = Session.visit(conn, "/redirect-source")
+
+      # Should end up at redirect destination, not source
+      assert Session.current_path(session) == "/redirect-destination"
+      assert Session.current_html(session) =~ "Redirect Destination"
+      assert Session.current_html(session) =~ "You were redirected here"
+    end
+
+    test "submit_form follows redirects after POST", %{conn: conn} do
+      html = """
+      <html>
+        <body>
+          <form id="login-form" action="/login-redirect" method="post">
+            <input type="text" name="username">
+          </form>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint,
+        cookies: %{},
+        form_values: %{}
+      }
+
+      new_session = Session.submit_form(session, "#login-form", username: "alice")
+
+      # Should follow redirect to dashboard
+      assert Session.current_path(new_session) == "/dashboard"
+      assert Session.current_html(new_session) =~ "Dashboard"
+      assert Session.current_html(new_session) =~ "Welcome, alice!"
+    end
+
+    test "click_link follows redirects", %{conn: conn} do
+      html = """
+      <html>
+        <body>
+          <a id="redirect-link" href="/redirect-source">Click me</a>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint,
+        cookies: %{},
+        form_values: %{}
+      }
+
+      new_session = Session.click_link(session, "#redirect-link")
+
+      # Should follow redirect
+      assert Session.current_path(new_session) == "/redirect-destination"
+      assert Session.current_html(new_session) =~ "Redirect Destination"
+    end
+
+    test "follows multiple redirects in a chain", %{conn: conn} do
+      session = Session.visit(conn, "/redirect-chain-1")
+
+      # Should follow all 3 redirects
+      assert Session.current_path(session) == "/redirect-chain-3"
+      assert Session.current_html(session) =~ "Chain End"
+      assert Session.current_html(session) =~ "After 3 redirects"
+    end
+
+    test "preserves cookies across redirects", %{conn: conn} do
+      html = """
+      <html>
+        <body>
+          <form id="login-form" action="/login-redirect" method="post">
+            <input type="text" name="username">
+          </form>
+        </body>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      response = %Plug.Conn{conn | resp_body: html}
+
+      session = %Session{
+        conn: conn,
+        document: document,
+        response: response,
+        endpoint: @endpoint,
+        cookies: %{},
+        form_values: %{}
+      }
+
+      new_session = Session.submit_form(session, "#login-form", username: "bob")
+
+      # Session should be preserved through redirect
+      assert Session.current_html(new_session) =~ "Welcome, bob!"
+    end
+  end
+
   describe "CSRF token handling" do
     setup do
       conn = build_test_conn()

@@ -212,6 +212,29 @@ end
 - Subsequent requests (`visit`, `click_link`, `submit_form`) include these cookies
 - This enables proper session-based authentication and CSRF validation
 
+## Automatic Redirect Following
+
+PhoenixHtmldriver automatically follows HTTP redirects, just like a real browser:
+
+```elixir
+test "form submission follows redirect", %{conn: conn} do
+  session =
+    visit(conn, "/login")
+    |> submit_form("#login-form", email: "test@example.com", password: "secret")
+    # Automatically follows 302 redirect to /dashboard
+
+  assert current_path(session) == "/dashboard"
+  assert_text(session, "Welcome back!")
+end
+```
+
+**Features:**
+- Automatically follows 301, 302, 303, 307, and 308 redirects
+- Handles redirect chains (up to 5 redirects deep)
+- Preserves cookies across redirects
+- Works with `visit/2`, `click_link/2`, and `submit_form/3`
+- `current_path/1` returns the final destination after all redirects
+
 ## CSRF Protection
 
 PhoenixHtmldriver automatically handles CSRF tokens for you! When submitting forms, it:

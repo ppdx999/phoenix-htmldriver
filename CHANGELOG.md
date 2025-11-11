@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Automatic redirect following for all navigation actions ([#5](https://github.com/ppdx999/phoenix-htmldriver/issues/5))
+  - `visit/2`, `click_link/2`, and `submit_form/3` now automatically follow redirects
+  - Supports all redirect status codes (301, 302, 303, 307, 308)
+  - Follows redirect chains up to 5 redirects deep
+  - Preserves cookies across redirects
+  - Matches real browser behavior
+- Added 5 new tests for redirect following (total: 84 tests)
+
+### Changed
+- All navigation functions now automatically follow HTTP redirects
+- `current_path/1` returns the final destination path after redirects
+
+### Fixed
+- Fixed issue where redirected responses showed original request path instead of final destination ([#5](https://github.com/ppdx999/phoenix-htmldriver/issues/5))
+
 ## [0.5.0] - 2025-01-11
 
 ### Added

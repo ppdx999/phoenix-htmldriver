@@ -245,6 +245,68 @@ defmodule PhoenixHtmldriver.TestRouter do
     """)
   end
 
+  get "/redirect-source" do
+    conn
+    |> put_resp_header("location", "/redirect-destination")
+    |> send_resp(302, "Redirecting...")
+  end
+
+  get "/redirect-destination" do
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <h1>Redirect Destination</h1>
+        <p>You were redirected here</p>
+      </body>
+    </html>
+    """)
+  end
+
+  post "/login-redirect" do
+    username = conn.body_params["username"] || "guest"
+
+    conn
+    |> put_session(:username, username)
+    |> put_resp_header("location", "/dashboard")
+    |> send_resp(302, "Redirecting to dashboard...")
+  end
+
+  get "/dashboard" do
+    username = get_session(conn, :username) || "anonymous"
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <h1>Dashboard</h1>
+        <p>Welcome, #{username}!</p>
+      </body>
+    </html>
+    """)
+  end
+
+  get "/redirect-chain-1" do
+    conn
+    |> put_resp_header("location", "/redirect-chain-2")
+    |> send_resp(302, "Redirecting to chain 2...")
+  end
+
+  get "/redirect-chain-2" do
+    conn
+    |> put_resp_header("location", "/redirect-chain-3")
+    |> send_resp(302, "Redirecting to chain 3...")
+  end
+
+  get "/redirect-chain-3" do
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <h1>Chain End</h1>
+        <p>After 3 redirects</p>
+      </body>
+    </html>
+    """)
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
   end

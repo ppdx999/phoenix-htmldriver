@@ -42,15 +42,18 @@ defmodule PhoenixHtmldriver.Session do
       build_test_conn(:get, path, endpoint)
       |> endpoint.call([])
 
-    {:ok, document} = Floki.parse_document(response.resp_body)
+    # Follow redirects automatically
+    final_response = follow_redirects(response, extract_cookies(response), endpoint)
 
-    # Extract cookies from response to preserve session
-    cookies = extract_cookies(response)
+    {:ok, document} = Floki.parse_document(final_response.resp_body)
+
+    # Extract cookies from final response
+    cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: document,
-      response: response,
+      response: final_response,
       endpoint: endpoint,
       cookies: cookies,
       form_values: %{}
@@ -195,15 +198,18 @@ defmodule PhoenixHtmldriver.Session do
           |> endpoint.call([])
       end
 
-    {:ok, new_document} = Floki.parse_document(response.resp_body)
+    # Follow redirects automatically
+    final_response = follow_redirects(response, extract_cookies(response), endpoint)
 
-    # Extract new cookies from response
-    new_cookies = extract_cookies(response)
+    {:ok, new_document} = Floki.parse_document(final_response.resp_body)
+
+    # Extract cookies from final response
+    new_cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: new_document,
-      response: response,
+      response: final_response,
       endpoint: endpoint,
       cookies: new_cookies,
       form_values: %{}  # Reset form values after submission
@@ -269,15 +275,18 @@ defmodule PhoenixHtmldriver.Session do
       |> put_cookies(cookies)
       |> endpoint.call([])
 
-    {:ok, new_document} = Floki.parse_document(response.resp_body)
+    # Follow redirects automatically
+    final_response = follow_redirects(response, extract_cookies(response), endpoint)
 
-    # Extract new cookies from response
-    new_cookies = extract_cookies(response)
+    {:ok, new_document} = Floki.parse_document(final_response.resp_body)
+
+    # Extract cookies from final response
+    new_cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: new_document,
-      response: response,
+      response: final_response,
       endpoint: endpoint,
       cookies: new_cookies,
       form_values: %{}  # Reset form values after navigation
@@ -391,6 +400,39 @@ defmodule PhoenixHtmldriver.Session do
       put_in(conn.secret_key_base, endpoint_secret)
     else
       conn
+    end
+  end
+
+  # Follow redirects automatically (mimics browser behavior)
+  defp follow_redirects(response, cookies, endpoint, max_redirects \\ 5)
+
+  defp follow_redirects(_response, _cookies, _endpoint, 0) do
+    raise "Too many redirects (max 5)"
+  end
+
+  defp follow_redirects(response, cookies, endpoint, remaining) do
+    case response.status do
+      status when status in [301, 302, 303, 307, 308] ->
+        # Get redirect location
+        location =
+          case Plug.Conn.get_resp_header(response, "location") do
+            [loc | _] -> loc
+            [] -> raise "Redirect response missing Location header"
+          end
+
+        # Follow redirect with GET request
+        new_response =
+          build_test_conn(:get, location, endpoint)
+          |> put_cookies(cookies)
+          |> endpoint.call([])
+
+        # Extract new cookies and follow further redirects if needed
+        new_cookies = extract_cookies(new_response)
+        follow_redirects(new_response, new_cookies, endpoint, remaining - 1)
+
+      _ ->
+        # Not a redirect, return as-is
+        response
     end
   end
 end
