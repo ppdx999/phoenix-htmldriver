@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2025-01-14
+
+### Fixed
+- **CRITICAL**: Fixed cookie preservation during redirects when redirect response has no Set-Cookie header ([#7](https://github.com/ppdx999/phoenix-htmldriver/issues/7))
+  - When a redirect response (302) doesn't include Set-Cookie headers, input cookies are now preserved
+  - Previously, `follow_redirects` was called with `extract_cookies(response)` which returned empty map for redirects
+  - Now checks if response has cookies; if not, uses input cookies instead
+  - Fixes session loss after login when visiting protected pages
+  - Fixes authenticated redirects not preserving session state
+  - Applies to all navigation functions: `visit/2`, `click_link/2`, and `submit_form/3`
+
+### Changed
+- All `follow_redirects` calls now intelligently choose between response cookies and input cookies
+- Cookie preservation logic: use response cookies if present, otherwise preserve input cookies
+
+### Impact
+- Session-based authentication flows with redirects now work correctly in all scenarios
+- Authenticated users remain logged in when navigating to pages that redirect
+- Fixes the regression where v0.9.0 still lost sessions during certain redirect scenarios
+- All 88 tests passing
+
 ## [0.9.0] - 2025-01-14
 
 ### Fixed
@@ -178,6 +199,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.10.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.6.0...v0.7.0

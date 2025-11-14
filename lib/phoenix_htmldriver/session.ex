@@ -45,7 +45,11 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
+    # IMPORTANT: Pass input cookies, not response cookies!
+    # The redirect response (302) usually doesn't have Set-Cookie headers
+    response_cookies = extract_cookies(response)
+    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
+    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
 
@@ -230,7 +234,11 @@ defmodule PhoenixHtmldriver.Session do
       end
 
     # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
+    # IMPORTANT: Pass input cookies, not response cookies!
+    # The redirect response (302) usually doesn't have Set-Cookie headers
+    response_cookies = extract_cookies(response)
+    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
+    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
 
@@ -304,7 +312,11 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
+    # IMPORTANT: Pass input cookies, not response cookies!
+    # The redirect response (302) usually doesn't have Set-Cookie headers
+    response_cookies = extract_cookies(response)
+    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
+    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
 
