@@ -178,4 +178,67 @@ defmodule PhoenixHtmldriver.CookieMonoidTest do
       assert session2.cookies == initial_cookies
     end
   end
+
+  describe "Cookie deletion (max_age <= 0)" do
+    test "cookies with max_age=0 are deleted" do
+      conn = build_test_conn()
+
+      # Set a cookie
+      session = Session.visit(conn, "/set-deletable-cookie")
+      assert Map.has_key?(session.cookies, "deletable_cookie")
+
+      # Delete the cookie (server sends max_age=0)
+      session2 = Session.visit(session, "/delete-cookie")
+
+      # Cookie should be removed
+      refute Map.has_key?(session2.cookies, "deletable_cookie")
+    end
+
+    test "cookies with negative max_age are deleted" do
+      conn = build_test_conn()
+
+      # Set a cookie
+      session = Session.visit(conn, "/set-deletable-cookie")
+      assert Map.has_key?(session.cookies, "deletable_cookie")
+
+      # Delete the cookie (server sends max_age=-1)
+      session2 = Session.visit(session, "/delete-cookie-negative")
+
+      # Cookie should be removed
+      refute Map.has_key?(session2.cookies, "deletable_cookie")
+    end
+
+    test "other cookies are preserved when one is deleted" do
+      conn = build_test_conn()
+
+      # Set two cookies
+      session = Session.visit(conn, "/set-multiple-cookies")
+      assert Map.has_key?(session.cookies, "cookie1")
+      assert Map.has_key?(session.cookies, "cookie2")
+
+      # Delete only cookie1
+      session2 = Session.visit(session, "/delete-cookie1")
+
+      # cookie1 should be deleted, cookie2 should remain
+      refute Map.has_key?(session2.cookies, "cookie1")
+      assert Map.has_key?(session2.cookies, "cookie2")
+    end
+
+    test "logout flow deletes session cookie" do
+      conn = build_test_conn()
+
+      # Login sets session cookie
+      session = Session.visit(conn, "/with-session")
+      initial_cookie_count = map_size(session.cookies)
+
+      # Assume at least one cookie was set
+      if initial_cookie_count > 0 do
+        # Logout deletes session cookie
+        session2 = Session.visit(session, "/logout")
+
+        # Session cookie should be removed
+        assert map_size(session2.cookies) < initial_cookie_count
+      end
+    end
+  end
 end

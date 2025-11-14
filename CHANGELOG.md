@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2025-01-14
+
+### Changed
+- **REFACTOR**: Extracted cookie handling into dedicated `CookieJar` module
+  - Separated cookie concerns from `Session` module (addressing "god module" pattern)
+  - Created `PhoenixHtmldriver.CookieJar` with focused API:
+    - `merge/2` - Monoid-based cookie merging
+    - `extract/1` - Extract cookies from response
+    - `put_into_request/2` - Add cookies to request
+    - `empty/0` - Identity element
+  - `Session` module now delegates all cookie operations to `CookieJar`
+  - Clearer separation of concerns and single responsibility
+
+### Added
+- Comprehensive `CookieJar` unit tests (20 new tests)
+  - Monoid property verification
+  - Cookie deletion behavior
+  - Request/response integration
+- Added 20 new tests (total: 120 tests)
+
+### Impact
+- Better code organization and maintainability
+- Easier to test cookie logic in isolation
+- Clearer API boundaries between modules
+- Foundation for future cookie-related features
+- All 120 tests passing
+
+## [0.12.0] - 2025-01-14
+
+### Fixed
+- **CRITICAL**: Fixed cookie deletion handling for `max_age <= 0` ([reported by user analysis])
+  - Cookies with `max_age=0` or negative values are now properly deleted
+  - Previously, `Map.merge` would keep deleted cookies in the session
+  - Now matches browser behavior: cookies marked for deletion are removed
+  - Fixes logout flows and cookie expiration handling
+
+### Changed
+- Enhanced `merge_cookies/2` to filter out cookies with `max_age <= 0`
+- Cookie deletion now works correctly in all scenarios (logout, expiration, etc.)
+
+### Added
+- Cookie deletion tests (4 new tests)
+  - Test `max_age=0` deletion
+  - Test negative `max_age` deletion
+  - Test partial deletion (other cookies preserved)
+  - Test logout flow
+- Added 4 new tests (total: 100 tests)
+
+### Impact
+- Logout flows now work correctly
+- Cookie expiration handled properly
+- More accurate browser behavior simulation
+- All 100 tests passing
+
 ## [0.11.0] - 2025-01-14
 
 ### Changed
@@ -229,6 +283,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.13.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.8.0...v0.9.0

@@ -8,6 +8,7 @@ defmodule PhoenixHtmldriver.Session do
   """
 
   import ExUnit.Assertions
+  alias PhoenixHtmldriver.CookieJar
 
   defstruct [:conn, :document, :response, :endpoint, :cookies, :form_values]
 
@@ -41,12 +42,12 @@ defmodule PhoenixHtmldriver.Session do
     # Use Plug.Test functions directly instead of Phoenix.ConnTest dispatch
     response =
       build_test_conn(:get, path, endpoint)
-      |> put_cookies(cookies)
+      |> CookieJar.put_into_request(cookies)
       |> endpoint.call([])
 
     # Follow redirects automatically
     # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
     {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
@@ -80,7 +81,7 @@ defmodule PhoenixHtmldriver.Session do
 
     # Follow redirects automatically
     # Start with empty cookies (monoid identity) and merge response cookies
-    merged_cookies = merge_cookies(%{}, extract_cookies(response))
+    merged_cookies = CookieJar.merge(CookieJar.empty(), CookieJar.extract(response))
     {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
@@ -209,33 +210,33 @@ defmodule PhoenixHtmldriver.Session do
       case method_atom do
         :post ->
           build_test_conn(:post, action, endpoint, form_values)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
 
         :get ->
           build_test_conn(:get, action <> "?" <> URI.encode_query(form_values), endpoint)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
 
         :put ->
           build_test_conn(:put, action, endpoint, form_values)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
 
         :patch ->
           build_test_conn(:patch, action, endpoint, form_values)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
 
         :delete ->
           build_test_conn(:delete, action, endpoint)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
       end
 
     # Follow redirects automatically
     # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
     {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
@@ -306,12 +307,12 @@ defmodule PhoenixHtmldriver.Session do
 
     response =
       build_test_conn(:get, href, endpoint)
-      |> put_cookies(cookies)
+      |> CookieJar.put_into_request(cookies)
       |> endpoint.call([])
 
     # Follow redirects automatically
     # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
     {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
@@ -405,43 +406,6 @@ defmodule PhoenixHtmldriver.Session do
     end
   end
 
-  # Extract cookies from response
-  defp extract_cookies(response) do
-    response.resp_cookies
-  end
-
-  # Merges cookies using monoid structure.
-  #
-  # This operation forms a monoid with the following properties:
-  # - Identity: merge_cookies(%{}, a) = merge_cookies(a, %{}) = a
-  # - Associativity: merge_cookies(merge_cookies(a, b), c) = merge_cookies(a, merge_cookies(b, c))
-  # - Right-biased: merge_cookies(%{k: v1}, %{k: v2}) = %{k: v2}
-  #
-  # New cookies override existing cookies with the same key.
-  # This matches browser behavior where Set-Cookie headers update existing cookies.
-  defp merge_cookies(existing, new) when is_map(existing) and is_map(new) do
-    Map.merge(existing, new)
-  end
-
-  defp merge_cookies(nil, new) when is_map(new), do: new
-  defp merge_cookies(existing, nil) when is_map(existing), do: existing
-  defp merge_cookies(nil, nil), do: %{}
-
-  # Put cookies into request
-  defp put_cookies(conn, nil), do: conn
-  defp put_cookies(conn, cookies) when map_size(cookies) == 0, do: conn
-
-  defp put_cookies(conn, cookies) do
-    # Build Cookie header string
-    cookie_header =
-      cookies
-      |> Enum.map(fn {name, cookie} -> "#{name}=#{cookie.value}" end)
-      |> Enum.join("; ")
-
-    # Set Cookie header
-    Plug.Conn.put_req_header(conn, "cookie", cookie_header)
-  end
-
   # Create a test conn with secret_key_base if needed
   defp build_test_conn(method, path, endpoint, body_or_params \\ nil) do
     conn =
@@ -479,11 +443,11 @@ defmodule PhoenixHtmldriver.Session do
         # Follow redirect with GET request
         new_response =
           build_test_conn(:get, location, endpoint)
-          |> put_cookies(cookies)
+          |> CookieJar.put_into_request(cookies)
           |> endpoint.call([])
 
         # Merge cookies using monoid structure: new cookies override existing ones
-        merged_cookies = merge_cookies(cookies, extract_cookies(new_response))
+        merged_cookies = CookieJar.merge(cookies, CookieJar.extract(new_response))
 
         follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
 

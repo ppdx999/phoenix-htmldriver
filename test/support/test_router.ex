@@ -346,6 +346,45 @@ defmodule PhoenixHtmldriver.TestRouter do
     send_resp(conn, 200, "<html><body>Final destination</body></html>")
   end
 
+  # Cookie deletion test endpoints
+  get "/set-deletable-cookie" do
+    conn
+    |> put_resp_cookie("deletable_cookie", "value", max_age: 3600)
+    |> send_resp(200, "<html><body>Cookie set</body></html>")
+  end
+
+  get "/delete-cookie" do
+    conn
+    |> put_resp_cookie("deletable_cookie", "", max_age: 0)
+    |> send_resp(200, "<html><body>Cookie deleted (max_age=0)</body></html>")
+  end
+
+  get "/delete-cookie-negative" do
+    conn
+    |> put_resp_cookie("deletable_cookie", "", max_age: -1)
+    |> send_resp(200, "<html><body>Cookie deleted (max_age=-1)</body></html>")
+  end
+
+  get "/set-multiple-cookies" do
+    conn
+    |> put_resp_cookie("cookie1", "value1", max_age: 3600)
+    |> put_resp_cookie("cookie2", "value2", max_age: 3600)
+    |> send_resp(200, "<html><body>Multiple cookies set</body></html>")
+  end
+
+  get "/delete-cookie1" do
+    conn
+    |> put_resp_cookie("cookie1", "", max_age: 0)
+    |> send_resp(200, "<html><body>Cookie1 deleted</body></html>")
+  end
+
+  get "/logout" do
+    conn
+    |> configure_session(drop: true)
+    |> put_resp_cookie("_test_session", "", max_age: 0)
+    |> send_resp(200, "<html><body>Logged out</body></html>")
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
   end
