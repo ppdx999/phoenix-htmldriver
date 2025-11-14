@@ -29,8 +29,16 @@ defmodule PhoenixHtmldriver.HTTP do
   2. Adds cookies to the request via Cookie header
   3. Executes the request through the Phoenix endpoint
   4. Merges response cookies with existing cookies (monoid operation)
-  5. Follows redirects automatically (up to 5 levels)
+  5. If response is a redirect (3xx), recursively calls itself with redirect location
   6. Parses the final HTML response into a Floki document
+
+  ## Redirect Handling
+
+  Redirects are handled recursively:
+  - 3xx status codes automatically followed (up to 5 levels)
+  - Cookies accumulated through redirect chain using monoid merge
+  - GET method used for redirect requests
+  - Prevents infinite loops with max_redirects counter
 
   ## Returns
 
@@ -45,12 +53,18 @@ defmodule PhoenixHtmldriver.HTTP do
       {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}, [{...}]}
 
       iex> perform_request(:post, "/login", MyApp.Endpoint, cookies, %{username: "alice"})
-      {%Plug.Conn{status: 302, ...}, %{"session" => %{...}}, [...]}
+      {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}, [...]}
 
   """
-  @spec perform_request(method(), String.t(), endpoint(), cookies(), params()) ::
+  @spec perform_request(method(), String.t(), endpoint(), cookies(), params(), non_neg_integer()) ::
           {Plug.Conn.t(), cookies(), Floki.html_tree()}
-  def perform_request(method, path, endpoint, cookies, params \\ nil) do
+  def perform_request(method, path, endpoint, cookies, params \\ nil, max_redirects \\ 5)
+
+  def perform_request(_method, _path, _endpoint, _cookies, _params, 0) do
+    raise "Too many redirects (max 5)"
+  end
+
+  def perform_request(method, path, endpoint, cookies, params, remaining_redirects) do
     # Build and execute request
     response =
       build_conn(method, path, endpoint, params)
@@ -60,13 +74,24 @@ defmodule PhoenixHtmldriver.HTTP do
     # Merge cookies: new cookies from response override existing ones
     merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
 
-    # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
+    # Check if response is a redirect
+    case response.status do
+      status when status in [301, 302, 303, 307, 308] ->
+        # Extract redirect location
+        location =
+          case Plug.Conn.get_resp_header(response, "location") do
+            [loc | _] -> loc
+            [] -> raise "Redirect response missing Location header"
+          end
 
-    # Parse HTML document
-    {:ok, document} = Floki.parse_document(final_response.resp_body)
+        # Recursively follow redirect with GET request
+        perform_request(:get, location, endpoint, merged_cookies, nil, remaining_redirects - 1)
 
-    {final_response, final_cookies, document}
+      _ ->
+        # Not a redirect, parse and return
+        {:ok, document} = Floki.parse_document(response.resp_body)
+        {response, merged_cookies, document}
+    end
   end
 
   @doc """
@@ -102,63 +127,4 @@ defmodule PhoenixHtmldriver.HTTP do
     end
   end
 
-  @doc """
-  Follows HTTP redirects automatically.
-
-  Mimics browser behavior by:
-  - Following redirect status codes (301, 302, 303, 307, 308)
-  - Using GET for redirect requests
-  - Carrying cookies through redirect chain
-  - Merging cookies at each step (new cookies override old ones)
-  - Limiting to maximum 5 redirects (prevents infinite loops)
-
-  ## Returns
-
-  A tuple of `{final_response, final_cookies}` where:
-  - `final_response` is the non-redirect response
-  - `final_cookies` is the accumulated cookie jar through all redirects
-
-  ## Examples
-
-      iex> follow_redirects(redirect_response, cookies, MyApp.Endpoint)
-      {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}}
-
-      iex> follow_redirects(ok_response, cookies, MyApp.Endpoint)
-      {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}}
-
-  """
-  @spec follow_redirects(Plug.Conn.t(), cookies(), endpoint(), non_neg_integer()) ::
-          {Plug.Conn.t(), cookies()}
-  def follow_redirects(response, cookies, endpoint, max_redirects \\ 5)
-
-  def follow_redirects(_response, _cookies, _endpoint, 0) do
-    raise "Too many redirects (max 5)"
-  end
-
-  def follow_redirects(response, cookies, endpoint, remaining) do
-    case response.status do
-      status when status in [301, 302, 303, 307, 308] ->
-        # Get redirect location
-        location =
-          case Plug.Conn.get_resp_header(response, "location") do
-            [loc | _] -> loc
-            [] -> raise "Redirect response missing Location header"
-          end
-
-        # Follow redirect with GET request
-        new_response =
-          build_conn(:get, location, endpoint)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
-
-        # Merge cookies using monoid structure: new cookies override existing ones
-        merged_cookies = CookieJar.merge(cookies, CookieJar.extract(new_response))
-
-        follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
-
-      _ ->
-        # Not a redirect, return final response with current cookies
-        {response, cookies}
-    end
-  end
 end

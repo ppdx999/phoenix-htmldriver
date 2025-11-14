@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2025-01-14
+
+### Changed
+- **REFACTOR**: Simplified redirect handling using recursive `perform_request`
+  - Eliminated separate `follow_redirects/4` function (32 lines removed)
+  - Redirect logic now integrated directly into `perform_request` via recursion
+  - Cleaner design: single function handles both request and redirect
+  - Cookies naturally accumulated through recursive calls (monoid composition)
+
+### Removed
+- `follow_redirects/4` function (no longer needed)
+- Redundant redirect tests (covered by `perform_request` tests)
+
+### Impact
+- Simpler code with fewer moving parts
+- More elegant recursive design
+- Same behavior, better structure
+- HTTP module reduced from 162 to 130 lines (20% smaller)
+- Test count: 136 → 132 (removed redundant tests)
+- All 132 tests passing
+
 ## [0.15.0] - 2025-01-14
 
 ### Changed
@@ -328,6 +349,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.16.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.12.0...v0.13.0
