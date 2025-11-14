@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2025-01-14
+
+### Fixed
+- **CRITICAL**: Fixed `put_cookies` to use HTTP `Cookie` header instead of `conn.req_cookies` ([#7](https://github.com/ppdx999/phoenix-htmldriver/issues/7))
+  - `Plug.Session` reads cookies from the `Cookie` HTTP header, not from `conn.req_cookies`
+  - Previous implementation used `Plug.Test.put_req_cookie` which didn't set the header correctly
+  - Now uses `Plug.Conn.put_req_header` to directly set the `Cookie` header
+  - Fixes session recognition issues with encrypted sessions (`encryption_salt`)
+  - Completes the session cookie preservation feature from v0.7.0 and v0.8.0
+
+### Changed
+- `put_cookies` now builds and sets the `Cookie` header string directly
+
+### Impact
+- Session-based authentication flows now work correctly in all scenarios
+- Encrypted session cookies are properly recognized across requests
+- Cookie values no longer change unexpectedly between requests
+- All 87 tests passing
+
 ## [0.8.0] - 2025-01-14
 
 ### Fixed
@@ -159,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.9.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.5.0...v0.6.0
