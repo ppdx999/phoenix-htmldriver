@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-01-14
+
+### Added
+- Cookie preservation when calling `visit/2` with a Session struct ([#6](https://github.com/ppdx999/phoenix-htmldriver/issues/6))
+  - `visit(session, path)` now preserves cookies from previous requests
+  - `visit(conn, path)` continues to start fresh without cookies
+  - Enables testing of authenticated flows across multiple page visits
+  - Brings `visit/2` behavior in line with `click_link/2` and `submit_form/3`
+- Added 3 new tests for visit/2 cookie preservation (total: 87 tests)
+
+### Changed
+- `visit/2` now has two function clauses for different input types
+- Updated `@spec` for `visit/2` to accept both `t()` and `Plug.Conn.t()`
+- Enhanced documentation with examples showing both usage modes
+
+### Fixed
+- Fixed issue where `visit/2` did not preserve session cookies, breaking authentication flows ([#6](https://github.com/ppdx999/phoenix-htmldriver/issues/6))
+- Session cookies are now consistently preserved across all navigation functions
+
 ## [0.6.0] - 2025-01-11
 
 ### Added
@@ -122,6 +141,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.7.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.3.0...v0.4.0
