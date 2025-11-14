@@ -486,6 +486,25 @@ defmodule PhoenixHtmldriver.SessionTest do
       assert Session.current_html(new_session) =~ "Form was loaded: true"
     end
 
+    test "preserves session cookies when using visit/2 with a Session", %{conn: conn} do
+      # Visit page that sets a session value
+      session = Session.visit(conn, "/set-session")
+      assert Session.current_html(session) =~ "Session set"
+
+      # Visit another page using the session - cookies should be preserved
+      new_session = Session.visit(session, "/check-session")
+      assert Session.current_html(new_session) =~ "User ID: test_user_123"
+    end
+
+    test "visit/2 with Plug.Conn starts fresh without cookies", %{conn: conn} do
+      # Visit page that sets a session
+      _session = Session.visit(conn, "/set-session")
+
+      # Visit another page with fresh conn - should not have cookies
+      fresh_session = Session.visit(conn, "/check-session")
+      assert Session.current_html(fresh_session) =~ "User ID: not set"
+    end
+
     test "cookies field is populated in session", %{conn: conn} do
       session = Session.visit(conn, "/set-session")
 
@@ -504,6 +523,20 @@ defmodule PhoenixHtmldriver.SessionTest do
       cookies2 = session2.cookies
 
       # Both should have cookies (though they may be the same or updated)
+      assert cookies1 != nil
+      assert cookies2 != nil
+    end
+
+    test "updates cookies when using visit/2 with a Session", %{conn: conn} do
+      # First request
+      session1 = Session.visit(conn, "/set-session")
+      cookies1 = session1.cookies
+
+      # Second request using visit/2 should preserve and potentially update cookies
+      session2 = Session.visit(session1, "/check-session")
+      cookies2 = session2.cookies
+
+      # Both should have cookies
       assert cookies1 != nil
       assert cookies2 != nil
     end

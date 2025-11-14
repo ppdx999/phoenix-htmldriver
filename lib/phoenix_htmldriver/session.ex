@@ -22,9 +22,46 @@ defmodule PhoenixHtmldriver.Session do
 
   @doc """
   Visits a path and returns a new session.
+
+  When called with a Session struct, preserves cookies from the previous request.
+  When called with a Plug.Conn, starts a fresh session without cookies.
+
   The conn should be created with Phoenix.ConnTest.build_conn/0 and have an endpoint set.
+
+  ## Examples
+
+      # Fresh session (no cookies)
+      session = visit(conn, "/login")
+
+      # Preserves cookies from previous request
+      session = visit(session, "/dashboard")
   """
-  @spec visit(Plug.Conn.t(), String.t()) :: t()
+  @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
+  def visit(%__MODULE__{conn: conn, endpoint: endpoint, cookies: cookies}, path) do
+    # Use Plug.Test functions directly instead of Phoenix.ConnTest dispatch
+    response =
+      build_test_conn(:get, path, endpoint)
+      |> put_cookies(cookies)
+      |> endpoint.call([])
+
+    # Follow redirects automatically
+    final_response = follow_redirects(response, extract_cookies(response), endpoint)
+
+    {:ok, document} = Floki.parse_document(final_response.resp_body)
+
+    # Extract cookies from final response
+    new_cookies = extract_cookies(final_response)
+
+    %__MODULE__{
+      conn: conn,
+      document: document,
+      response: final_response,
+      endpoint: endpoint,
+      cookies: new_cookies,
+      form_values: %{}
+    }
+  end
+
   def visit(conn, path) do
     # Get the endpoint from conn's private data (set by Phoenix.ConnTest.build_conn)
     endpoint = conn.private[:phoenix_endpoint]
