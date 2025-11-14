@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2025-01-14
+
+### Changed
+- **REFACTOR**: Unified HTTP request handling across all navigation methods
+  - Introduced `perform_request/5` private function as single source of truth
+  - All navigation methods (`visit`, `click_link`, `submit_form`) now use same core logic
+  - Eliminated code duplication (removed ~45 lines of repeated code)
+  - Consistent cookie handling, redirect following, and HTML parsing
+
+### Impact
+- Reduced code complexity and maintenance burden
+- Single place to modify HTTP request behavior
+- Consistent behavior across all navigation methods
+- Easier to add new navigation methods in future
+- All 120 tests passing
+
 ## [0.13.0] - 2025-01-14
 
 ### Changed
@@ -283,6 +299,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.14.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.10.0...v0.11.0

@@ -39,18 +39,8 @@ defmodule PhoenixHtmldriver.Session do
   """
   @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
   def visit(%__MODULE__{conn: conn, endpoint: endpoint, cookies: cookies}, path) do
-    # Use Plug.Test functions directly instead of Phoenix.ConnTest dispatch
-    response =
-      build_test_conn(:get, path, endpoint)
-      |> CookieJar.put_into_request(cookies)
-      |> endpoint.call([])
-
-    # Follow redirects automatically
-    # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
-
-    {:ok, document} = Floki.parse_document(final_response.resp_body)
+    {final_response, final_cookies, document} =
+      perform_request(:get, path, endpoint, cookies)
 
     %__MODULE__{
       conn: conn,
@@ -74,17 +64,9 @@ defmodule PhoenixHtmldriver.Session do
       """
     end
 
-    # Use Plug.Test functions directly instead of Phoenix.ConnTest dispatch
-    response =
-      build_test_conn(:get, path, endpoint)
-      |> endpoint.call([])
-
-    # Follow redirects automatically
-    # Start with empty cookies (monoid identity) and merge response cookies
-    merged_cookies = CookieJar.merge(CookieJar.empty(), CookieJar.extract(response))
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
-
-    {:ok, document} = Floki.parse_document(final_response.resp_body)
+    # Start with empty cookies (monoid identity)
+    {final_response, final_cookies, document} =
+      perform_request(:get, path, endpoint, CookieJar.empty())
 
     %__MODULE__{
       conn: conn,
@@ -205,41 +187,22 @@ defmodule PhoenixHtmldriver.Session do
         merged_values
       end
 
-    # Submit the form using Plug.Test directly
-    response =
+    # Submit the form - handle GET specially (query params in URL)
+    {final_response, final_cookies, new_document} =
       case method_atom do
-        :post ->
-          build_test_conn(:post, action, endpoint, form_values)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
-
         :get ->
-          build_test_conn(:get, action <> "?" <> URI.encode_query(form_values), endpoint)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
+          # GET forms encode params in query string
+          path_with_query = action <> "?" <> URI.encode_query(form_values)
+          perform_request(:get, path_with_query, endpoint, cookies)
 
-        :put ->
-          build_test_conn(:put, action, endpoint, form_values)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
-
-        :patch ->
-          build_test_conn(:patch, action, endpoint, form_values)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
+        method when method in [:post, :put, :patch] ->
+          # POST/PUT/PATCH forms send params in body
+          perform_request(method, action, endpoint, cookies, form_values)
 
         :delete ->
-          build_test_conn(:delete, action, endpoint)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
+          # DELETE typically doesn't have a body
+          perform_request(:delete, action, endpoint, cookies)
       end
-
-    # Follow redirects automatically
-    # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
-
-    {:ok, new_document} = Floki.parse_document(final_response.resp_body)
 
     %__MODULE__{
       conn: conn,
@@ -305,17 +268,8 @@ defmodule PhoenixHtmldriver.Session do
 
     href = get_attribute(link, "href") || "/"
 
-    response =
-      build_test_conn(:get, href, endpoint)
-      |> CookieJar.put_into_request(cookies)
-      |> endpoint.call([])
-
-    # Follow redirects automatically
-    # Merge cookies using monoid structure: new cookies override existing ones
-    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
-
-    {:ok, new_document} = Floki.parse_document(final_response.resp_body)
+    {final_response, final_cookies, new_document} =
+      perform_request(:get, href, endpoint, cookies)
 
     %__MODULE__{
       conn: conn,
@@ -420,6 +374,36 @@ defmodule PhoenixHtmldriver.Session do
     else
       conn
     end
+  end
+
+  # Performs an HTTP request with cookie handling and redirect following.
+  #
+  # This is the core request function that all navigation methods use.
+  # It handles:
+  # 1. Building the request with cookies
+  # 2. Executing the request
+  # 3. Merging response cookies with existing cookies
+  # 4. Following redirects automatically
+  # 5. Parsing the final HTML response
+  #
+  # Returns `{final_response, final_cookies, document}`.
+  defp perform_request(method, path, endpoint, cookies, params \\ nil) do
+    # Build and execute request
+    response =
+      build_test_conn(method, path, endpoint, params)
+      |> CookieJar.put_into_request(cookies)
+      |> endpoint.call([])
+
+    # Merge cookies: new cookies from response override existing ones
+    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
+
+    # Follow redirects automatically
+    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
+
+    # Parse HTML document
+    {:ok, document} = Floki.parse_document(final_response.resp_body)
+
+    {final_response, final_cookies, document}
   end
 
   # Follow redirects automatically (mimics browser behavior)
