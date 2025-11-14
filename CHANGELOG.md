@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2025-01-14
+
+### Fixed
+- **CRITICAL**: Fixed cookie loss during redirect chains ([#7](https://github.com/ppdx999/phoenix-htmldriver/issues/7))
+  - Cookies set during authentication (e.g., login) are now preserved through redirects
+  - `follow_redirects` now merges cookies at each redirect step instead of replacing them
+  - Enables proper testing of login flows with redirect-based authentication
+  - Fixes the issue where `visit/2` cookie preservation (from v0.7.0) didn't work for redirect scenarios
+
+### Changed
+- `follow_redirects` now returns `{response, cookies}` tuple instead of just response
+- Cookie merging strategy: new cookies from redirect responses override existing ones with same name
+- Updated all navigation functions (`visit/2`, `click_link/2`, `submit_form/3`) to use merged cookies
+
+### Technical Details
+- Added `elixirc_paths` configuration in `mix.exs` to properly compile test support files
+- All 89 tests passing including new encrypted session tests
+
 ## [0.7.0] - 2025-01-14
 
 ### Added
@@ -141,6 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.8.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.4.0...v0.5.0
