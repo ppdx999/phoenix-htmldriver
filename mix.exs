@@ -6,6 +6,7 @@ defmodule PhoenixHtmldriver.MixProject do
       app: :phoenix_htmldriver,
       version: "0.7.0",
       elixir: "~> 1.17",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       description: "A lightweight Phoenix library for testing pure HTML with human-like interactions",
@@ -14,6 +15,10 @@ defmodule PhoenixHtmldriver.MixProject do
       source_url: "https://github.com/ppdx999/phoenix-htmldriver"
     ]
   end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   defp package do
     [

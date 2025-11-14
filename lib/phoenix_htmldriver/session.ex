@@ -45,19 +45,16 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    final_response = follow_redirects(response, extract_cookies(response), endpoint)
+    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
-
-    # Extract cookies from final response
-    new_cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: new_cookies,
+      cookies: final_cookies,
       form_values: %{}
     }
   end
@@ -80,19 +77,16 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    final_response = follow_redirects(response, extract_cookies(response), endpoint)
+    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
-
-    # Extract cookies from final response
-    cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: cookies,
+      cookies: final_cookies,
       form_values: %{}
     }
   end
@@ -236,19 +230,16 @@ defmodule PhoenixHtmldriver.Session do
       end
 
     # Follow redirects automatically
-    final_response = follow_redirects(response, extract_cookies(response), endpoint)
+    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
-
-    # Extract cookies from final response
-    new_cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: new_document,
       response: final_response,
       endpoint: endpoint,
-      cookies: new_cookies,
+      cookies: final_cookies,
       form_values: %{}  # Reset form values after submission
     }
   end
@@ -313,19 +304,16 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    final_response = follow_redirects(response, extract_cookies(response), endpoint)
+    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
-
-    # Extract cookies from final response
-    new_cookies = extract_cookies(final_response)
 
     %__MODULE__{
       conn: conn,
       document: new_document,
       response: final_response,
       endpoint: endpoint,
-      cookies: new_cookies,
+      cookies: final_cookies,
       form_values: %{}  # Reset form values after navigation
     }
   end
@@ -441,6 +429,7 @@ defmodule PhoenixHtmldriver.Session do
   end
 
   # Follow redirects automatically (mimics browser behavior)
+  # Returns {final_response, final_cookies}
   defp follow_redirects(response, cookies, endpoint, max_redirects \\ 5)
 
   defp follow_redirects(_response, _cookies, _endpoint, 0) do
@@ -463,13 +452,14 @@ defmodule PhoenixHtmldriver.Session do
           |> put_cookies(cookies)
           |> endpoint.call([])
 
-        # Extract new cookies and follow further redirects if needed
+        # Merge cookies: new cookies from redirect response override existing ones
         new_cookies = extract_cookies(new_response)
-        follow_redirects(new_response, new_cookies, endpoint, remaining - 1)
+        merged_cookies = Map.merge(cookies, new_cookies)
+        follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
 
       _ ->
-        # Not a redirect, return as-is
-        response
+        # Not a redirect, return as-is with current cookies
+        {response, cookies}
     end
   end
 end
