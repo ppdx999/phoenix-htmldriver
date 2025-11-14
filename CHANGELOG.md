@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2025-01-14
+
+### Changed
+- **BREAKING INTERNAL**: Refactored cookie handling to use proper monoid structure
+  - Introduced `merge_cookies/2` private function with explicit monoid properties
+  - Eliminated conditional logic (no more `if map_size(cookies) > 0`)
+  - Cookie merging now uses `Map.merge` consistently everywhere
+  - Right-biased merge: new cookies override existing ones with the same key
+  - Identity element: empty map `%{}` or `nil` handled correctly
+  - Associative operation: merge order doesn't affect final result
+
+### Added
+- Comprehensive monoid property tests (`test/cookie_monoid_test.exs`)
+  - Identity property verification
+  - Associativity verification
+  - Right-bias behavior documentation
+  - Edge case handling (nil cookies, empty responses)
+- Added 8 new tests (total: 96 tests)
+
+### Fixed
+- Improved cookie preservation through better algebraic structure
+- More robust handling of nil cookies and empty cookie maps
+- Clearer code expressing mathematical properties
+
+### Impact
+- More maintainable and easier to reason about cookie handling
+- Better guarantees about cookie behavior through monoid laws
+- Foundation for future extensions (e.g., custom cookie merge strategies)
+- All 96 tests passing
+
 ## [0.10.0] - 2025-01-14
 
 ### Fixed
@@ -199,6 +229,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.11.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.7.0...v0.8.0

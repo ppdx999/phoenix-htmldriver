@@ -45,11 +45,9 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    # IMPORTANT: Pass input cookies, not response cookies!
-    # The redirect response (302) usually doesn't have Set-Cookie headers
-    response_cookies = extract_cookies(response)
-    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
-    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
+    # Merge cookies using monoid structure: new cookies override existing ones
+    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
 
@@ -81,7 +79,9 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, extract_cookies(response), endpoint)
+    # Start with empty cookies (monoid identity) and merge response cookies
+    merged_cookies = merge_cookies(%{}, extract_cookies(response))
+    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, document} = Floki.parse_document(final_response.resp_body)
 
@@ -234,11 +234,9 @@ defmodule PhoenixHtmldriver.Session do
       end
 
     # Follow redirects automatically
-    # IMPORTANT: Pass input cookies, not response cookies!
-    # The redirect response (302) usually doesn't have Set-Cookie headers
-    response_cookies = extract_cookies(response)
-    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
-    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
+    # Merge cookies using monoid structure: new cookies override existing ones
+    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
 
@@ -312,11 +310,9 @@ defmodule PhoenixHtmldriver.Session do
       |> endpoint.call([])
 
     # Follow redirects automatically
-    # IMPORTANT: Pass input cookies, not response cookies!
-    # The redirect response (302) usually doesn't have Set-Cookie headers
-    response_cookies = extract_cookies(response)
-    initial_cookies = if map_size(response_cookies) > 0, do: response_cookies, else: cookies
-    {final_response, final_cookies} = follow_redirects(response, initial_cookies, endpoint)
+    # Merge cookies using monoid structure: new cookies override existing ones
+    merged_cookies = merge_cookies(cookies, extract_cookies(response))
+    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
 
     {:ok, new_document} = Floki.parse_document(final_response.resp_body)
 
@@ -414,6 +410,23 @@ defmodule PhoenixHtmldriver.Session do
     response.resp_cookies
   end
 
+  # Merges cookies using monoid structure.
+  #
+  # This operation forms a monoid with the following properties:
+  # - Identity: merge_cookies(%{}, a) = merge_cookies(a, %{}) = a
+  # - Associativity: merge_cookies(merge_cookies(a, b), c) = merge_cookies(a, merge_cookies(b, c))
+  # - Right-biased: merge_cookies(%{k: v1}, %{k: v2}) = %{k: v2}
+  #
+  # New cookies override existing cookies with the same key.
+  # This matches browser behavior where Set-Cookie headers update existing cookies.
+  defp merge_cookies(existing, new) when is_map(existing) and is_map(new) do
+    Map.merge(existing, new)
+  end
+
+  defp merge_cookies(nil, new) when is_map(new), do: new
+  defp merge_cookies(existing, nil) when is_map(existing), do: existing
+  defp merge_cookies(nil, nil), do: %{}
+
   # Put cookies into request
   defp put_cookies(conn, nil), do: conn
   defp put_cookies(conn, cookies) when map_size(cookies) == 0, do: conn
@@ -469,14 +482,13 @@ defmodule PhoenixHtmldriver.Session do
           |> put_cookies(cookies)
           |> endpoint.call([])
 
-        # Merge cookies: new cookies from redirect response override existing ones
-        new_cookies = extract_cookies(new_response)
-        merged_cookies = Map.merge(cookies, new_cookies)
+        # Merge cookies using monoid structure: new cookies override existing ones
+        merged_cookies = merge_cookies(cookies, extract_cookies(new_response))
 
         follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
 
       _ ->
-        # Not a redirect, return as-is with current cookies
+        # Not a redirect, return final response with current cookies
         {response, cookies}
     end
   end

@@ -307,6 +307,45 @@ defmodule PhoenixHtmldriver.TestRouter do
     """)
   end
 
+  # Monoid test endpoints
+  get "/set-cookie" do
+    conn
+    |> put_resp_cookie("test_cookie", "value", max_age: 3600)
+    |> send_resp(200, "<html><body>Cookie set</body></html>")
+  end
+
+  get "/set-cookie-first" do
+    conn
+    |> put_resp_cookie("test_cookie", "first", max_age: 3600)
+    |> send_resp(200, "<html><body>Cookie first</body></html>")
+  end
+
+  get "/set-cookie-second" do
+    conn
+    |> put_resp_cookie("test_cookie", "second", max_age: 3600)
+    |> send_resp(200, "<html><body>Cookie second</body></html>")
+  end
+
+  get "/with-session" do
+    conn
+    |> put_session(:test_key, "test_value")
+    |> send_resp(200, "<html><body>Session set</body></html>")
+  end
+
+  get "/no-cookies" do
+    send_resp(conn, 200, "<html><body>No cookies</body></html>")
+  end
+
+  get "/redirect-chain" do
+    conn
+    |> put_resp_header("location", "/final")
+    |> send_resp(302, "Redirecting...")
+  end
+
+  get "/final" do
+    send_resp(conn, 200, "<html><body>Final destination</body></html>")
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
   end
