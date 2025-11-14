@@ -407,9 +407,14 @@ defmodule PhoenixHtmldriver.Session do
   defp put_cookies(conn, cookies) when map_size(cookies) == 0, do: conn
 
   defp put_cookies(conn, cookies) do
-    Enum.reduce(cookies, conn, fn {name, cookie}, conn ->
-      Plug.Test.put_req_cookie(conn, to_string(name), cookie.value)
-    end)
+    # Build Cookie header string
+    cookie_header =
+      cookies
+      |> Enum.map(fn {name, cookie} -> "#{name}=#{cookie.value}" end)
+      |> Enum.join("; ")
+
+    # Set Cookie header
+    Plug.Conn.put_req_header(conn, "cookie", cookie_header)
   end
 
   # Create a test conn with secret_key_base if needed
@@ -455,6 +460,7 @@ defmodule PhoenixHtmldriver.Session do
         # Merge cookies: new cookies from redirect response override existing ones
         new_cookies = extract_cookies(new_response)
         merged_cookies = Map.merge(cookies, new_cookies)
+
         follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
 
       _ ->
