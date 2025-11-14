@@ -8,7 +8,7 @@ defmodule PhoenixHtmldriver.Session do
   """
 
   import ExUnit.Assertions
-  alias PhoenixHtmldriver.CookieJar
+  alias PhoenixHtmldriver.{CookieJar, HTTP}
 
   defstruct [:conn, :document, :response, :endpoint, :cookies, :form_values]
 
@@ -40,7 +40,7 @@ defmodule PhoenixHtmldriver.Session do
   @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
   def visit(%__MODULE__{conn: conn, endpoint: endpoint, cookies: cookies}, path) do
     {final_response, final_cookies, document} =
-      perform_request(:get, path, endpoint, cookies)
+      HTTP.perform_request(:get, path, endpoint, cookies)
 
     %__MODULE__{
       conn: conn,
@@ -66,7 +66,7 @@ defmodule PhoenixHtmldriver.Session do
 
     # Start with empty cookies (monoid identity)
     {final_response, final_cookies, document} =
-      perform_request(:get, path, endpoint, CookieJar.empty())
+      HTTP.perform_request(:get, path, endpoint, CookieJar.empty())
 
     %__MODULE__{
       conn: conn,
@@ -193,15 +193,15 @@ defmodule PhoenixHtmldriver.Session do
         :get ->
           # GET forms encode params in query string
           path_with_query = action <> "?" <> URI.encode_query(form_values)
-          perform_request(:get, path_with_query, endpoint, cookies)
+          HTTP.perform_request(:get, path_with_query, endpoint, cookies)
 
         method when method in [:post, :put, :patch] ->
           # POST/PUT/PATCH forms send params in body
-          perform_request(method, action, endpoint, cookies, form_values)
+          HTTP.perform_request(method, action, endpoint, cookies, form_values)
 
         :delete ->
           # DELETE typically doesn't have a body
-          perform_request(:delete, action, endpoint, cookies)
+          HTTP.perform_request(:delete, action, endpoint, cookies)
       end
 
     %__MODULE__{
@@ -269,7 +269,7 @@ defmodule PhoenixHtmldriver.Session do
     href = get_attribute(link, "href") || "/"
 
     {final_response, final_cookies, new_document} =
-      perform_request(:get, href, endpoint, cookies)
+      HTTP.perform_request(:get, href, endpoint, cookies)
 
     %__MODULE__{
       conn: conn,
@@ -357,87 +357,6 @@ defmodule PhoenixHtmldriver.Session do
     case Floki.attribute(node, name) do
       [value | _] -> value
       [] -> nil
-    end
-  end
-
-  # Create a test conn with secret_key_base if needed
-  defp build_test_conn(method, path, endpoint, body_or_params \\ nil) do
-    conn =
-      case body_or_params do
-        nil -> Plug.Test.conn(method, path)
-        params -> Plug.Test.conn(method, path, params)
-      end
-
-    # Set secret_key_base if the endpoint has one (needed for session cookies)
-    if endpoint_secret = endpoint.config(:secret_key_base) do
-      put_in(conn.secret_key_base, endpoint_secret)
-    else
-      conn
-    end
-  end
-
-  # Performs an HTTP request with cookie handling and redirect following.
-  #
-  # This is the core request function that all navigation methods use.
-  # It handles:
-  # 1. Building the request with cookies
-  # 2. Executing the request
-  # 3. Merging response cookies with existing cookies
-  # 4. Following redirects automatically
-  # 5. Parsing the final HTML response
-  #
-  # Returns `{final_response, final_cookies, document}`.
-  defp perform_request(method, path, endpoint, cookies, params \\ nil) do
-    # Build and execute request
-    response =
-      build_test_conn(method, path, endpoint, params)
-      |> CookieJar.put_into_request(cookies)
-      |> endpoint.call([])
-
-    # Merge cookies: new cookies from response override existing ones
-    merged_cookies = CookieJar.merge(cookies, CookieJar.extract(response))
-
-    # Follow redirects automatically
-    {final_response, final_cookies} = follow_redirects(response, merged_cookies, endpoint)
-
-    # Parse HTML document
-    {:ok, document} = Floki.parse_document(final_response.resp_body)
-
-    {final_response, final_cookies, document}
-  end
-
-  # Follow redirects automatically (mimics browser behavior)
-  # Returns {final_response, final_cookies}
-  defp follow_redirects(response, cookies, endpoint, max_redirects \\ 5)
-
-  defp follow_redirects(_response, _cookies, _endpoint, 0) do
-    raise "Too many redirects (max 5)"
-  end
-
-  defp follow_redirects(response, cookies, endpoint, remaining) do
-    case response.status do
-      status when status in [301, 302, 303, 307, 308] ->
-        # Get redirect location
-        location =
-          case Plug.Conn.get_resp_header(response, "location") do
-            [loc | _] -> loc
-            [] -> raise "Redirect response missing Location header"
-          end
-
-        # Follow redirect with GET request
-        new_response =
-          build_test_conn(:get, location, endpoint)
-          |> CookieJar.put_into_request(cookies)
-          |> endpoint.call([])
-
-        # Merge cookies using monoid structure: new cookies override existing ones
-        merged_cookies = CookieJar.merge(cookies, CookieJar.extract(new_response))
-
-        follow_redirects(new_response, merged_cookies, endpoint, remaining - 1)
-
-      _ ->
-        # Not a redirect, return final response with current cookies
-        {response, cookies}
     end
   end
 end

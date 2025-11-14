@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2025-01-14
+
+### Changed
+- **REFACTOR**: Extracted HTTP request handling into dedicated `HTTP` module
+  - Separated HTTP communication from session state management
+  - Created `PhoenixHtmldriver.HTTP` module with focused API:
+    - `perform_request/5` - Execute HTTP request with cookie/redirect handling
+    - `build_conn/4` - Build test connection with proper configuration
+    - `follow_redirects/4` - Follow HTTP redirects automatically
+  - `Session` now delegates all HTTP operations to `HTTP` module
+  - Removed ~80 lines from Session module
+
+### Added
+- Comprehensive `HTTP` module unit tests (16 new tests)
+  - Connection building tests
+  - Request execution tests
+  - Redirect following tests
+  - Cookie preservation tests
+  - Error handling tests
+- Added 16 new tests (total: 136 tests)
+
+### Impact
+- Better separation of concerns: Session (state) vs HTTP (communication)
+- Easier to test HTTP layer in isolation
+- HTTP logic can be reused independently if needed
+- Clearer code organization and module responsibilities
+- Session module now focuses solely on session state management
+- All 136 tests passing
+
 ## [0.14.0] - 2025-01-14
 
 ### Changed
@@ -299,6 +328,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.15.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.11.0...v0.12.0
