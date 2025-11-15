@@ -101,7 +101,9 @@ defmodule PhoenixHtmldriverTest do
     end
   end
 
-  describe "submit_form/3" do
+  describe "Form API" do
+    alias PhoenixHtmldriver.Form
+
     setup do
       conn = build_test_conn()
 
@@ -123,25 +125,39 @@ defmodule PhoenixHtmldriverTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
       {:ok, session: session}
     end
 
     test "submits a form with values", %{session: session} do
-      session = submit_form(session, "#login-form", username: "alice")
+      session =
+        session
+        |> form("#login-form")
+        |> Form.submit(username: "alice")
+
       assert_text(session, "Welcome, alice!")
     end
 
     test "submits a form without explicit values", %{session: session} do
-      session = submit_form(session, "#login-form")
-      assert_text(session, "Welcome, guest!")
+      # Form has <input name="username" /> with no value attribute
+      # FormParser extracts this as username: ""
+      # When submitted, it sends username="" (empty string)
+      # Server uses: username = params["username"] || "guest"
+      # Since "" is truthy in Elixir, it uses "" not "guest"
+      session =
+        session
+        |> form("#login-form")
+        |> Form.submit()
+
+      assert_text(session, "Welcome, !")
     end
 
     test "raises when form not found", %{session: session} do
       assert_raise RuntimeError, ~r/Form not found/, fn ->
-        submit_form(session, "#nonexistent-form", username: "alice")
+        form(session, "#nonexistent-form")
       end
     end
   end

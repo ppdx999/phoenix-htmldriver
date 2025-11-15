@@ -10,15 +10,14 @@ defmodule PhoenixHtmldriver.Session do
   import ExUnit.Assertions
   alias PhoenixHtmldriver.{CookieJar, HTTP}
 
-  defstruct [:conn, :document, :response, :endpoint, :cookies, :form_values]
+  defstruct [:conn, :document, :response, :endpoint, :cookies]
 
   @type t :: %__MODULE__{
           conn: Plug.Conn.t(),
           document: Floki.html_tree(),
           response: Plug.Conn.t(),
           endpoint: module(),
-          cookies: map(),
-          form_values: map()
+          cookies: map()
         }
 
   @doc """
@@ -47,8 +46,7 @@ defmodule PhoenixHtmldriver.Session do
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies,
-      form_values: %{}
+      cookies: final_cookies
     }
   end
 
@@ -73,171 +71,8 @@ defmodule PhoenixHtmldriver.Session do
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies,
-      form_values: %{}
+      cookies: final_cookies
     }
-  end
-
-  @doc """
-  Fills in a form with the given values.
-
-  Stores the values in the session so they can be submitted later with `submit_form/3`.
-  The values are associated with the form selector.
-
-  ## Examples
-
-      session
-      |> fill_form("#login-form", email: "user@example.com", password: "secret")
-      |> submit_form("#login-form")  # Values are automatically included
-
-      # Can also use nested maps
-      session
-      |> fill_form("form", %{user: %{email: "test@example.com"}})
-      |> submit_form("form")
-  """
-  @spec fill_form(t(), String.t(), keyword() | map()) :: t()
-  def fill_form(%__MODULE__{document: document, form_values: form_values} = session, selector, values) do
-    # Validate that the form exists
-    form = Floki.find(document, selector)
-
-    if Enum.empty?(form) do
-      raise "Form not found: #{selector}"
-    end
-
-    # Convert keyword list to map for consistent handling
-    values_map = Enum.into(values, %{})
-
-    # Store the values associated with this form selector
-    new_form_values = Map.put(form_values || %{}, selector, values_map)
-
-    %{session | form_values: new_form_values}
-  end
-
-  @doc """
-  Submits a form.
-
-  Automatically extracts and includes CSRF token from the form if present.
-  This helps prevent `Plug.CSRFProtection.InvalidCSRFTokenError` when testing
-  forms with CSRF protection.
-
-  ## CSRF Token Extraction
-
-  The CSRF token is looked up in the following order:
-  1. Hidden input field with name="_csrf_token" within the form
-  2. Meta tag with name="csrf-token" in the document head
-
-  The token is automatically added to form values for POST, PUT, PATCH, and DELETE
-  requests. GET requests do not include CSRF tokens.
-
-  If you provide your own `_csrf_token` value, it will not be overridden.
-
-  ## Examples
-
-      # CSRF token is automatically extracted and included
-      session
-      |> visit(conn, "/login")
-      |> submit_form("#login-form", email: "test@example.com", password: "secret")
-
-      # Override CSRF token if needed
-      session
-      |> submit_form("form", _csrf_token: "custom-token", email: "test@example.com")
-
-      # Forms without CSRF tokens work normally
-      session
-      |> submit_form("#search-form", q: "elixir")
-  """
-  @spec submit_form(t(), String.t(), keyword() | map()) :: t()
-  def submit_form(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies, form_values: stored_form_values} = _session, selector, values \\ []) do
-    # Find the form
-    form = Floki.find(document, selector)
-
-    if Enum.empty?(form) do
-      raise "Form not found: #{selector}"
-    end
-
-    [form_node | _] = form
-
-    # Get form action and method
-    action = get_attribute(form_node, "action") || "/"
-    method = get_attribute(form_node, "method") || "get"
-    method_atom = String.downcase(method) |> String.to_atom()
-
-    # Get stored values from fill_form for this selector
-    stored_values = Map.get(stored_form_values || %{}, selector, %{})
-
-    # Convert values parameter to map
-    submit_values = Enum.into(values, %{})
-
-    # Merge stored values with submit values (submit values take precedence)
-    merged_values = Map.merge(stored_values, submit_values)
-
-    # Extract CSRF token from form or document
-    csrf_token = extract_csrf_token(form_node, document)
-
-    # Merge CSRF token into values if present and method requires it
-    form_values =
-      if csrf_token && method_atom in [:post, :put, :patch, :delete] do
-        # Only add CSRF token if not already present
-        if Map.has_key?(merged_values, "_csrf_token") || Map.has_key?(merged_values, :_csrf_token) do
-          merged_values
-        else
-          Map.put(merged_values, "_csrf_token", csrf_token)
-        end
-      else
-        merged_values
-      end
-
-    # Submit the form - handle GET specially (query params in URL)
-    {final_response, final_cookies, new_document} =
-      case method_atom do
-        :get ->
-          # GET forms encode params in query string
-          path_with_query = action <> "?" <> URI.encode_query(form_values)
-          HTTP.perform_request(:get, path_with_query, endpoint, cookies)
-
-        method when method in [:post, :put, :patch] ->
-          # POST/PUT/PATCH forms send params in body
-          HTTP.perform_request(method, action, endpoint, cookies, form_values)
-
-        :delete ->
-          # DELETE typically doesn't have a body
-          HTTP.perform_request(:delete, action, endpoint, cookies)
-      end
-
-    %__MODULE__{
-      conn: conn,
-      document: new_document,
-      response: final_response,
-      endpoint: endpoint,
-      cookies: final_cookies,
-      form_values: %{}  # Reset form values after submission
-    }
-  end
-
-  # Extract CSRF token from form or document
-  defp extract_csrf_token(form_node, document) do
-    # Try to find CSRF token in form's hidden input
-    case Floki.find(form_node, "input[name='_csrf_token']") do
-      [input | _] ->
-        case get_attribute(input, "value") do
-          nil -> extract_csrf_from_meta(document)
-          token -> token
-        end
-
-      [] ->
-        extract_csrf_from_meta(document)
-    end
-  end
-
-  # Extract CSRF token from meta tag
-  defp extract_csrf_from_meta(document) do
-    case Floki.find(document, "meta[name='csrf-token']") do
-      [meta | _] ->
-        get_attribute(meta, "content")
-
-      [] ->
-        nil
-    end
   end
 
   @doc """
@@ -276,8 +111,7 @@ defmodule PhoenixHtmldriver.Session do
       document: new_document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies,
-      form_values: %{}  # Reset form values after navigation
+      cookies: final_cookies
     }
   end
 

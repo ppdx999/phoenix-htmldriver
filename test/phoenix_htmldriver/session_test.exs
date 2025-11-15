@@ -82,7 +82,9 @@ defmodule PhoenixHtmldriver.SessionTest do
     end
   end
 
-  describe "submit_form/3" do
+  describe "Form.submit/2 with various HTTP methods" do
+    alias PhoenixHtmldriver.Form
+
     setup do
       conn = build_test_conn()
       {:ok, conn: conn}
@@ -106,10 +108,14 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#test-form", username: "alice")
+      new_session =
+        session
+        |> Form.new("#test-form")
+        |> Form.submit(username: "alice")
 
       assert new_session.response.request_path == "/login"
       assert Session.current_html(new_session) =~ "Welcome, alice!"
@@ -133,10 +139,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#search-form", q: "elixir")
+      new_session = session |> Form.new("#search-form") |> Form.submit(q: "elixir")
 
       assert new_session.response.request_path =~ "/search"
       assert Session.current_html(new_session) =~ "Search results for: elixir"
@@ -160,10 +167,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#update-form", name: "test")
+      new_session = session |> Form.new("#update-form") |> Form.submit(name: "test")
 
       assert new_session.response.request_path == "/update"
       assert Session.current_html(new_session) =~ "Updated: test"
@@ -187,10 +195,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#patch-form", value: "updated")
+      new_session = session |> Form.new("#patch-form") |> Form.submit(value: "updated")
 
       assert new_session.response.request_path == "/patch"
       assert Session.current_html(new_session) =~ "Patched: updated"
@@ -213,10 +222,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#delete-form")
+      new_session = session |> Form.new("#delete-form") |> Form.submit()
 
       assert new_session.response.request_path == "/delete"
       assert Session.current_html(new_session) =~ "Deleted successfully"
@@ -240,11 +250,12 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
       # Should default to "/" for action
-      new_session = Session.submit_form(session, "#test-form", username: "test")
+      new_session = session |> Form.new("#test-form") |> Form.submit(username: "test")
       assert new_session.response.request_path == "/"
     end
 
@@ -266,10 +277,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#test-form", q: "phoenix")
+      new_session = session |> Form.new("#test-form") |> Form.submit(q: "phoenix")
       assert Session.current_html(new_session) =~ "Search results for: phoenix"
     end
   end
@@ -389,14 +401,15 @@ defmodule PhoenixHtmldriver.SessionTest do
     end
   end
 
-  describe "fill_form/3" do
-    test "stores form values in session" do
+  describe "Form API" do
+    alias PhoenixHtmldriver.Form
+
+    test "form raises if form not found" do
       conn = build_test_conn()
       session = Session.visit(conn, "/home")
 
-      # fill_form should raise if form not found
       assert_raise RuntimeError, ~r/Form not found/, fn ->
-        Session.fill_form(session, "#nonexistent-form", field: "value")
+        Form.new(session, "#nonexistent-form")
       end
     end
 
@@ -405,21 +418,23 @@ defmodule PhoenixHtmldriver.SessionTest do
 
       session =
         Session.visit(conn, "/login-form")
-        |> Session.fill_form("#login-form", username: "alice")
-        |> Session.submit_form("#login-form")
+        |> Form.new("#login-form")
+        |> Form.fill(username: "alice")
+        |> Form.submit()
 
       # The username should be included in the submission
       assert Session.current_html(session) =~ "Logged in as: alice"
       assert Session.current_html(session) =~ "Form was loaded: true"
     end
 
-    test "submit_form values override fill_form values" do
+    test "submit values override fill values" do
       conn = build_test_conn()
 
       session =
         Session.visit(conn, "/login-form")
-        |> Session.fill_form("#login-form", username: "alice")
-        |> Session.submit_form("#login-form", username: "bob")
+        |> Form.new("#login-form")
+        |> Form.fill(username: "alice")
+        |> Form.submit(username: "bob")
 
       # bob should override alice
       assert Session.current_html(session) =~ "Logged in as: bob"
@@ -447,18 +462,22 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{},
-        form_values: %{}
+        cookies: %{}
       }
 
-      result = Session.fill_form(session, "#test-form", %{user: %{email: "test@example.com", password: "secret"}})
+      form =
+        session
+        |> Form.new("#test-form")
+        |> Form.fill(%{user: %{email: "test@example.com", password: "secret"}})
 
-      # Check that values are stored
-      assert result.form_values["#test-form"] == %{user: %{email: "test@example.com", password: "secret"}}
+      # Check that filled values are stored in form struct
+      assert form.filled_values == %{user: %{email: "test@example.com", password: "secret"}}
     end
   end
 
   describe "session cookie preservation" do
+    alias PhoenixHtmldriver.Form
+
     setup do
       conn = build_test_conn()
       {:ok, conn: conn}
@@ -479,7 +498,7 @@ defmodule PhoenixHtmldriver.SessionTest do
       session = Session.visit(conn, "/login-form")
 
       # Submit form - session from page load should be preserved
-      new_session = Session.submit_form(session, "#login-form", username: "alice")
+      new_session = session |> Form.new("#login-form") |> Form.submit(username: "alice")
 
       # Both the form_loaded session value and new username should be present
       assert Session.current_html(new_session) =~ "Logged in as: alice"
@@ -543,6 +562,8 @@ defmodule PhoenixHtmldriver.SessionTest do
   end
 
   describe "automatic redirect following" do
+    alias PhoenixHtmldriver.Form
+
     setup do
       conn = build_test_conn()
       {:ok, conn: conn}
@@ -577,10 +598,9 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        form_values: %{}
       }
 
-      new_session = Session.submit_form(session, "#login-form", username: "alice")
+      new_session = session |> Form.new("#login-form") |> Form.submit(username: "alice")
 
       # Should follow redirect to dashboard
       assert Session.current_path(new_session) == "/dashboard"
@@ -606,7 +626,6 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        form_values: %{}
       }
 
       new_session = Session.click_link(session, "#redirect-link")
@@ -645,10 +664,9 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        form_values: %{}
       }
 
-      new_session = Session.submit_form(session, "#login-form", username: "bob")
+      new_session = session |> Form.new("#login-form") |> Form.submit(username: "bob")
 
       # Session should be preserved through redirect
       assert Session.current_html(new_session) =~ "Welcome, bob!"
@@ -656,6 +674,8 @@ defmodule PhoenixHtmldriver.SessionTest do
   end
 
   describe "CSRF token handling" do
+    alias PhoenixHtmldriver.Form
+
     setup do
       conn = build_test_conn()
       {:ok, conn: conn}
@@ -664,24 +684,16 @@ defmodule PhoenixHtmldriver.SessionTest do
     test "automatically extracts and includes CSRF token from hidden input", %{conn: conn} do
       session = Session.visit(conn, "/form-with-csrf")
 
-      new_session = Session.submit_form(session, "#csrf-form", message: "Hello")
+      new_session = session |> Form.new("#csrf-form") |> Form.submit(message: "Hello")
 
       assert Session.current_html(new_session) =~ "CSRF valid: Hello"
-    end
-
-    test "automatically extracts CSRF token from meta tag when not in form", %{conn: conn} do
-      session = Session.visit(conn, "/form-with-meta-csrf")
-
-      new_session = Session.submit_form(session, "#meta-csrf-form", data: "test data")
-
-      assert Session.current_html(new_session) =~ "Meta CSRF valid: test data"
     end
 
     test "does not override user-provided CSRF token", %{conn: conn} do
       session = Session.visit(conn, "/form-with-csrf")
 
       # User explicitly provides wrong token
-      new_session = Session.submit_form(session, "#csrf-form", _csrf_token: "wrong-token", message: "Hello")
+      new_session = session |> Form.new("#csrf-form") |> Form.submit(_csrf_token: "wrong-token", message: "Hello")
 
       # Should use user-provided token (wrong), so validation fails
       assert new_session.response.status == 403
@@ -707,10 +719,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#simple-form", q: "test")
+      new_session = session |> Form.new("#simple-form") |> Form.submit(q: "test")
       assert Session.current_html(new_session) =~ "Search results for: test"
     end
 
@@ -736,10 +749,11 @@ defmodule PhoenixHtmldriver.SessionTest do
         conn: conn,
         document: document,
         response: response,
-        endpoint: @endpoint
+        endpoint: @endpoint,
+        cookies: %{}
       }
 
-      new_session = Session.submit_form(session, "#get-form", q: "search")
+      new_session = session |> Form.new("#get-form") |> Form.submit(q: "search")
       assert Session.current_html(new_session) =~ "Search results for: search"
     end
   end

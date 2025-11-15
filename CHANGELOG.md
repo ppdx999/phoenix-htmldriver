@@ -5,6 +5,74 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2025-01-14
+
+### Breaking Changes
+- **REMOVED `fill_form/3` and `submit_form/3` from Session module**
+  - Use Form API instead: `session |> Session.form(selector) |> Form.fill(...) |> Form.submit()`
+  - Cleaner separation: Session handles navigation, Form handles form operations
+  - Session struct simplified - no more `filled_forms` field
+- **REMOVED meta tag CSRF token support**
+  - Only `<input type="hidden" name="_csrf_token">` is supported
+  - Meta tag CSRF (`<meta name="csrf-token">`) requires JavaScript
+  - Use Wallaby/Playwright for JavaScript-heavy applications
+  - PhoenixHtmldriver focuses on pure HTML testing
+
+### Added
+- **Form module**: Dedicated module for form operations
+  - `Session.form/2` returns Form struct with inherited session context
+  - `Form.fill/2` fills form values
+  - `Form.submit/2` submits form and returns new Session
+  - Form struct encapsulates: selector, node, default values, filled values, endpoint, cookies, document
+- **FormParser module**: Parses HTML forms and extracts default values on-demand
+  - Extracts hidden input values
+  - Handles default values from text/email/password inputs
+  - Handles checkboxes (checked = "on", unchecked = not included)
+  - Handles radio buttons (checked one gets its value)
+  - Handles textareas and select elements
+  - Ensures forms include all defaults like real browsers
+
+### Changed
+- **Session struct simplified**:
+  - Before: `%Session{conn, document, response, endpoint, cookies, filled_forms}`
+  - After: `%Session{conn, document, response, endpoint, cookies}`
+  - Removed `filled_forms` - no longer needed
+- **Form struct simplified**:
+  - Before: `%Form{selector, node, default_values, filled_values, endpoint, cookies, document}`
+  - After: `%Form{selector, node, default_values, filled_values, endpoint, cookies}`
+  - Removed `document` - no longer needed (meta CSRF not supported)
+- **On-demand form parsing**:
+  - Forms parsed only when `Session.form/2` is called
+  - No parsing during `visit/2` or `click_link/2`
+  - Better performance - parse only what you use
+- **Key normalization**: Form.submit normalizes atom keys to strings
+  - `Form.fill(form, username: "alice")` works correctly
+  - Handles nested maps recursively
+
+### Migration Guide
+```elixir
+# Before (v0.16.0)
+session
+|> fill_form("#form", username: "alice")
+|> submit_form("#form")
+
+# After (v0.17.0)
+alias PhoenixHtmldriver.Form
+
+session
+|> Session.form("#form")
+|> Form.fill(username: "alice")
+|> Form.submit()
+```
+
+### Impact
+- Better code organization with Single Responsibility Principle
+- Form logic can be tested independently
+- Clearer API for form interactions with composable functions
+- Foundation for advanced form features (file uploads, custom validations, etc.)
+- Forms work like real browsers - hidden inputs and defaults automatically included
+- All 132 tests passing
+
 ## [0.16.0] - 2025-01-14
 
 ### Changed
@@ -349,6 +417,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
 - Comprehensive documentation and README
 
+[0.17.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/ppdx999/phoenix-htmldriver/compare/v0.13.0...v0.14.0

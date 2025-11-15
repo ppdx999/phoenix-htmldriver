@@ -14,15 +14,17 @@ defmodule PhoenixHtmldriver do
       defmodule MyAppWeb.PageControllerTest do
         use MyAppWeb.ConnCase
         use PhoenixHtmldriver
+        alias PhoenixHtmldriver.Form
 
         test "login flow", %{conn: conn} do
           # Visit a page
           session = visit(conn, "/login")
 
-          # Fill and submit a form
+          # Fill and submit a form using Form API
           session
-          |> fill_form("#login-form", username: "alice", password: "secret")
-          |> submit_form("#login-form")
+          |> form("#login-form")
+          |> Form.fill(username: "alice", password: "secret")
+          |> Form.submit()
           |> assert_text("Welcome, alice")
           |> assert_selector(".alert-success")
         end
@@ -107,25 +109,21 @@ defmodule PhoenixHtmldriver do
   defdelegate visit(conn, path), to: Session
 
   @doc """
-  Fills in a form with the given values.
+  Gets a form from the current session.
+
+  Returns a Form struct that can be filled and submitted using the Form module.
 
   ## Examples
 
-      session = fill_form(session, "#login-form", username: "alice", password: "secret")
+      alias PhoenixHtmldriver.Form
+
+      session
+      |> form("#login-form")
+      |> Form.fill(username: "alice", password: "secret")
+      |> Form.submit()
   """
-  @spec fill_form(Session.t(), String.t(), keyword()) :: Session.t()
-  defdelegate fill_form(session, selector, values), to: Session
-
-  @doc """
-  Submits a form.
-
-  ## Examples
-
-      session = submit_form(session, "#login-form")
-      session = submit_form(session, "#login-form", username: "alice")
-  """
-  @spec submit_form(Session.t(), String.t(), keyword()) :: Session.t()
-  defdelegate submit_form(session, selector, values \\ []), to: Session
+  @spec form(Session.t(), String.t()) :: PhoenixHtmldriver.Form.t()
+  defdelegate form(session, selector), to: PhoenixHtmldriver.Form, as: :new
 
   @doc """
   Clicks a link.

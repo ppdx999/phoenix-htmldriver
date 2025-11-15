@@ -38,17 +38,20 @@ defmodule PhoenixHtmldriver.EncryptedSessionReproductionTest do
   end
 
   describe "Encrypted session - reproducing issue #7" do
-    test "submit_form works, but subsequent visit does not" do
+    alias PhoenixHtmldriver.Form
+
+    test "Form.submit works, and subsequent visit preserves session" do
       conn = build_test_conn()
 
       # Step 1: Login successfully (this works)
       session =
         Session.visit(conn, "/login")
-        |> Session.fill_form("form", %{
+        |> Form.new("form")
+        |> Form.fill(%{
           email: "test@example.com",
           password: "Password123"
         })
-        |> Session.submit_form("form")
+        |> Form.submit()
 
       # Should be redirected to home and authenticated
       assert Session.current_path(session) == "/"
