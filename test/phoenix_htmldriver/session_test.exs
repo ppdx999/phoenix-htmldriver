@@ -109,7 +109,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session =
@@ -140,7 +141,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#search-form") |> Form.submit(q: "elixir")
@@ -168,7 +170,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#update-form") |> Form.submit(name: "test")
@@ -196,7 +199,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#patch-form") |> Form.submit(value: "updated")
@@ -223,7 +227,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#delete-form") |> Form.submit()
@@ -251,7 +256,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       # Should default to "/" for action
@@ -278,7 +284,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#test-form") |> Form.submit(q: "phoenix")
@@ -462,7 +469,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       form =
@@ -470,8 +478,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         |> Form.new("#test-form")
         |> Form.fill(%{user: %{email: "test@example.com", password: "secret"}})
 
-      # Check that filled values are stored in form struct
-      assert form.filled_values == %{user: %{email: "test@example.com", password: "secret"}}
+      # Check that values are stored in form struct (merged with defaults)
+      assert form.values["user"] == %{"email" => "test@example.com", "password" => "secret"}
     end
   end
 
@@ -720,7 +728,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#simple-form") |> Form.submit(q: "test")
@@ -750,7 +759,8 @@ defmodule PhoenixHtmldriver.SessionTest do
         document: document,
         response: response,
         endpoint: @endpoint,
-        cookies: %{}
+        cookies: %{},
+        current_path: "/"
       }
 
       new_session = session |> Form.new("#get-form") |> Form.submit(q: "search")

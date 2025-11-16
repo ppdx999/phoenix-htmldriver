@@ -13,17 +13,17 @@ defmodule PhoenixHtmldriver.Form do
       |> Form.submit()
   """
 
-  alias PhoenixHtmldriver.{HTTP, FormParser}
+  alias PhoenixHtmldriver.HTTP
 
-  defstruct [:selector, :node, :default_values, :filled_values, :endpoint, :cookies]
+  defstruct [:selector, :node, :values, :endpoint, :cookies, :current_path]
 
   @type t :: %__MODULE__{
           selector: String.t(),
           node: Floki.html_node(),
-          default_values: map(),
-          filled_values: map(),
+          values: map(),
           endpoint: module(),
-          cookies: map()
+          cookies: map(),
+          current_path: String.t()
         }
 
   @doc """
@@ -42,7 +42,7 @@ defmodule PhoenixHtmldriver.Form do
       |> Form.submit()
   """
   @spec new(PhoenixHtmldriver.Session.t(), String.t()) :: t()
-  def new(%PhoenixHtmldriver.Session{document: document, endpoint: endpoint, cookies: cookies}, selector) do
+  def new(%PhoenixHtmldriver.Session{document: document, endpoint: endpoint, cookies: cookies, current_path: current_path}, selector) do
     # Find the form
     form_node = Floki.find(document, selector)
 
@@ -52,23 +52,24 @@ defmodule PhoenixHtmldriver.Form do
 
     [node | _] = form_node
 
-    # Parse form on-demand to extract default values
-    default_values = FormParser.extract_form_values(node)
+    # Parse form to get current DOM state (initial values)
+    values = parse_form_values(node)
 
     %__MODULE__{
       selector: selector,
       node: node,
-      default_values: default_values,
-      filled_values: %{},
+      values: values,
       endpoint: endpoint,
-      cookies: cookies
+      cookies: cookies,
+      current_path: current_path
     }
   end
 
   @doc """
   Fills the form with the given values.
 
-  Values are stored and will be merged with default values when the form is submitted.
+  Updates the form's current values, mimicking how a browser updates the DOM
+  when a user fills in form fields.
 
   ## Examples
 
@@ -82,59 +83,53 @@ defmodule PhoenixHtmldriver.Form do
       |> submit()
   """
   @spec fill(t(), keyword() | map()) :: t()
-  def fill(%__MODULE__{} = form, values) do
-    # Convert keyword list to map for consistent handling
-    values_map = Enum.into(values, %{})
+  def fill(%__MODULE__{values: current_values} = form, new_values) do
+    # Convert keyword list to map and normalize keys
+    normalized_new_values = new_values |> Enum.into(%{}) |> normalize_keys()
 
-    # Merge with existing filled values
-    new_filled_values = Map.merge(form.filled_values || %{}, values_map)
+    # Merge with current values (mimicking DOM state update)
+    updated_values = Map.merge(current_values, normalized_new_values)
 
-    %{form | filled_values: new_filled_values}
+    %{form | values: updated_values}
   end
 
   @doc """
   Submits the form and returns a new Session.
 
-  Automatically merges default values, filled values, and any additional values
-  provided to submit. Priority order: defaults < filled < submit.
+  Optionally accepts additional values to merge with the form's current values
+  before submission. Additional values take priority over current values.
 
   CSRF tokens are automatically extracted and included for POST/PUT/PATCH/DELETE requests.
 
   ## Examples
 
-      # Submit with filled values
+      # Submit with current values
       form
       |> fill(%{email: "user@example.com"})
       |> submit()
 
-      # Submit with additional values
+      # Submit with additional values (override current values)
       form
       |> fill(%{email: "user@example.com"})
       |> submit(%{remember_me: "on"})
 
-      # Submit without filling
+      # Submit without filling (uses DOM default values)
       form
       |> submit(%{email: "user@example.com", password: "secret"})
   """
   @spec submit(t(), keyword() | map()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{node: node, selector: _selector, default_values: default_values, filled_values: filled_values, endpoint: endpoint, cookies: cookies} = _form, values \\ []) do
+  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, current_path: current_path} = _form, additional_values \\ []) do
     # Get form action and method
-    action = get_attribute(node, "action") || "/"
+    # Per HTML spec, if action is not specified, form submits to current URL
+    action = get_attribute(node, "action") || current_path
     method = get_attribute(node, "method") || "get"
     method_atom = String.downcase(method) |> String.to_atom()
 
-    # Convert values parameter to map and normalize keys to strings
-    submit_values = normalize_keys(Enum.into(values, %{}))
+    # Normalize additional values
+    normalized_additional = additional_values |> Enum.into(%{}) |> normalize_keys()
 
-    # Normalize filled_values keys to strings for consistent merging
-    normalized_filled = normalize_keys(filled_values || %{})
-
-    # Merge in priority order: defaults < filled < submit
-    # All keys are strings at this point for consistent merging
-    merged_values =
-      (default_values || %{})
-      |> Map.merge(normalized_filled)
-      |> Map.merge(submit_values)
+    # Merge current values with additional values (additional takes priority)
+    merged_values = Map.merge(current_values, normalized_additional)
 
     # Extract CSRF token from form's hidden input (meta tag not supported)
     csrf_token = extract_csrf_token(node)
@@ -177,7 +172,8 @@ defmodule PhoenixHtmldriver.Form do
       document: new_document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies
+      cookies: final_cookies,
+      current_path: final_response.request_path
     }
   end
 
@@ -211,4 +207,90 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   defp normalize_keys(value), do: value
+
+  # Parse form and extract default values from all fields
+  defp parse_form_values(form) do
+    form
+    |> Floki.find("input, textarea, select")
+    |> Enum.reduce(%{}, fn element, acc ->
+      case extract_field_value(element) do
+        {name, value} when is_binary(name) -> Map.put(acc, name, value)
+        nil -> acc
+      end
+    end)
+  end
+
+  # Extract name and value from a single form field
+  defp extract_field_value(element) do
+    name = get_attribute(element, "name")
+
+    if !name || name == "" do
+      nil
+    else
+      value = extract_value_by_type(element)
+      {name, value}
+    end
+  end
+
+  # Extract value based on element type
+  defp extract_value_by_type(element) do
+    case element do
+      {"input", _attrs, _children} ->
+        extract_input_value(element)
+
+      {"textarea", _attrs, children} ->
+        Floki.text(children) |> String.trim()
+
+      {"select", _attrs, _children} ->
+        extract_select_value(element)
+
+      _ ->
+        nil
+    end
+  end
+
+  # Extract value from input element based on type
+  defp extract_input_value(input) do
+    input_type = get_attribute(input, "type") || "text"
+
+    case String.downcase(input_type) do
+      "checkbox" ->
+        if get_attribute(input, "checked") do
+          get_attribute(input, "value") || "on"
+        else
+          nil
+        end
+
+      "radio" ->
+        if get_attribute(input, "checked") do
+          get_attribute(input, "value")
+        else
+          nil
+        end
+
+      type when type in ["file", "submit", "button", "reset", "image"] ->
+        nil
+
+      _ ->
+        # text, password, email, hidden, number, etc.
+        get_attribute(input, "value") || ""
+    end
+  end
+
+  # Extract value from select element
+  defp extract_select_value(select) do
+    case Floki.find(select, "option[selected]") do
+      [option | _] ->
+        get_attribute(option, "value") || Floki.text(option)
+
+      [] ->
+        case Floki.find(select, "option") do
+          [first_option | _] ->
+            get_attribute(first_option, "value") || Floki.text(first_option)
+
+          [] ->
+            ""
+        end
+    end
+  end
 end

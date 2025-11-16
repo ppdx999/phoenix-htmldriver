@@ -10,14 +10,15 @@ defmodule PhoenixHtmldriver.Session do
   import ExUnit.Assertions
   alias PhoenixHtmldriver.{CookieJar, HTTP}
 
-  defstruct [:conn, :document, :response, :endpoint, :cookies]
+  defstruct [:conn, :document, :response, :endpoint, :cookies, :current_path]
 
   @type t :: %__MODULE__{
           conn: Plug.Conn.t(),
           document: Floki.html_tree(),
           response: Plug.Conn.t(),
           endpoint: module(),
-          cookies: map()
+          cookies: map(),
+          current_path: String.t()
         }
 
   @doc """
@@ -46,7 +47,8 @@ defmodule PhoenixHtmldriver.Session do
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies
+      cookies: final_cookies,
+      current_path: final_response.request_path
     }
   end
 
@@ -71,7 +73,8 @@ defmodule PhoenixHtmldriver.Session do
       document: document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies
+      cookies: final_cookies,
+      current_path: final_response.request_path
     }
   end
 
@@ -111,7 +114,8 @@ defmodule PhoenixHtmldriver.Session do
       document: new_document,
       response: final_response,
       endpoint: endpoint,
-      cookies: final_cookies
+      cookies: final_cookies,
+      current_path: final_response.request_path
     }
   end
 
