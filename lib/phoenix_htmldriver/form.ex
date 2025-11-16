@@ -99,11 +99,12 @@ defmodule PhoenixHtmldriver.Form do
   Optionally accepts additional values to merge with the form's current values
   before submission. Additional values take priority over current values.
 
-  CSRF tokens are automatically extracted and included for POST/PUT/PATCH/DELETE requests.
+  All form fields (including hidden inputs like CSRF tokens) are automatically
+  included from the form's current values.
 
   ## Examples
 
-      # Submit with current values
+      # Submit with current values (includes CSRF token from hidden input)
       form
       |> fill(%{email: "user@example.com"})
       |> submit()
@@ -113,7 +114,7 @@ defmodule PhoenixHtmldriver.Form do
       |> fill(%{email: "user@example.com"})
       |> submit(%{remember_me: "on"})
 
-      # Submit without filling (uses DOM default values)
+      # Submit without filling (uses parsed DOM values including hidden fields)
       form
       |> submit(%{email: "user@example.com", password: "secret"})
   """
@@ -129,23 +130,8 @@ defmodule PhoenixHtmldriver.Form do
     normalized_additional = additional_values |> Enum.into(%{}) |> normalize_keys()
 
     # Merge current values with additional values (additional takes priority)
-    merged_values = Map.merge(current_values, normalized_additional)
-
-    # Extract CSRF token from form's hidden input (meta tag not supported)
-    csrf_token = extract_csrf_token(node)
-
-    # Merge CSRF token into values if present and method requires it
-    form_values =
-      if csrf_token && method_atom in [:post, :put, :patch, :delete] do
-        # Only add CSRF token if not already present
-        if Map.has_key?(merged_values, "_csrf_token") || Map.has_key?(merged_values, :_csrf_token) do
-          merged_values
-        else
-          Map.put(merged_values, "_csrf_token", csrf_token)
-        end
-      else
-        merged_values
-      end
+    # CSRF tokens from hidden inputs are already in current_values
+    form_values = Map.merge(current_values, normalized_additional)
 
     # Submit the form - handle GET specially (query params in URL)
     {final_response, final_cookies, new_document} =
@@ -175,18 +161,6 @@ defmodule PhoenixHtmldriver.Form do
       cookies: final_cookies,
       current_path: final_response.request_path
     }
-  end
-
-  # Extract CSRF token from form's hidden input only
-  # Meta tag CSRF tokens are not supported (use JavaScript-based testing tools for those)
-  defp extract_csrf_token(form_node) do
-    case Floki.find(form_node, "input[name='_csrf_token']") do
-      [input | _] ->
-        get_attribute(input, "value")
-
-      [] ->
-        nil
-    end
   end
 
   # Helper to get attribute value
