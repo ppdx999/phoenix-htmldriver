@@ -110,7 +110,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session =
@@ -142,7 +142,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#search-form") |> Form.submit(q: "elixir")
@@ -171,7 +171,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#update-form") |> Form.submit(name: "test")
@@ -200,7 +200,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#patch-form") |> Form.submit(value: "updated")
@@ -228,7 +228,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#delete-form") |> Form.submit()
@@ -257,7 +257,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       # Should default to "/" for action
@@ -285,7 +285,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#test-form") |> Form.submit(q: "phoenix")
@@ -470,7 +470,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       form =
@@ -729,7 +729,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#simple-form") |> Form.submit(q: "test")
@@ -760,7 +760,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       new_session = session |> Form.new("#get-form") |> Form.submit(q: "search")

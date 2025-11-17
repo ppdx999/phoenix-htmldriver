@@ -127,7 +127,7 @@ defmodule PhoenixHtmldriverTest do
         response: response,
         endpoint: @endpoint,
         cookies: %{},
-        current_path: "/"
+        path: "/"
       }
 
       {:ok, session: session}

@@ -15,7 +15,7 @@ defmodule PhoenixHtmldriver.Form do
 
   alias PhoenixHtmldriver.HTTP
 
-  defstruct [:selector, :node, :values, :endpoint, :cookies, :current_path]
+  defstruct [:selector, :node, :values, :endpoint, :cookies, :path]
 
   @type t :: %__MODULE__{
           selector: String.t(),
@@ -23,7 +23,7 @@ defmodule PhoenixHtmldriver.Form do
           values: map(),
           endpoint: module(),
           cookies: map(),
-          current_path: String.t()
+          path: String.t()
         }
 
   @doc """
@@ -42,7 +42,7 @@ defmodule PhoenixHtmldriver.Form do
       |> Form.submit()
   """
   @spec new(PhoenixHtmldriver.Session.t(), String.t()) :: t()
-  def new(%PhoenixHtmldriver.Session{document: document, endpoint: endpoint, cookies: cookies, current_path: current_path}, selector) do
+  def new(%PhoenixHtmldriver.Session{document: document, endpoint: endpoint, cookies: cookies, path: path}, selector) do
     # Find the form
     form_node = Floki.find(document, selector)
 
@@ -61,7 +61,7 @@ defmodule PhoenixHtmldriver.Form do
       values: values,
       endpoint: endpoint,
       cookies: cookies,
-      current_path: current_path
+      path: path
     }
   end
 
@@ -119,10 +119,10 @@ defmodule PhoenixHtmldriver.Form do
       |> submit(%{email: "user@example.com", password: "secret"})
   """
   @spec submit(t(), keyword() | map()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, current_path: current_path} = _form, additional_values \\ []) do
+  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form, additional_values \\ []) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
-    action = get_attribute(node, "action") || current_path
+    action = get_attribute(node, "action") || path
     method = get_attribute(node, "method") || "get"
     method_atom = String.downcase(method) |> String.to_atom()
 
@@ -159,7 +159,7 @@ defmodule PhoenixHtmldriver.Form do
       response: final_response,
       endpoint: endpoint,
       cookies: final_cookies,
-      current_path: final_response.request_path
+      path: final_response.request_path
     }
   end
 
