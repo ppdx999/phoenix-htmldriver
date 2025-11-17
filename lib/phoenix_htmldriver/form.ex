@@ -279,32 +279,8 @@ defmodule PhoenixHtmldriver.Form do
     end
   end
 
-  # Parse form and extract default values from all fields
-  defp parse_form_values(form) do
-    form
-    |> Floki.find("input, textarea, select")
-    |> Enum.filter(&has_valid_name?/1)
-    |> Enum.map(&to_name_value_pair/1)
-    |> Enum.reject(fn {_name, value} -> is_nil(value) end)
-    |> Enum.into(%{})
-  end
-
-  # Checks if element has a valid name attribute
-  defp has_valid_name?(element) do
-    case attr(element, "name") do
-      nil -> false
-      "" -> false
-      _ -> true
-    end
-  end
-
-  # Transforms element to {name, value} pair
-  defp to_name_value_pair(element) do
-    {attr(element, "name"), extract_value(element)}
-  end
-
-  # Extract value based on element type
-  defp extract_value({"input", _attrs, _children} = input) do
+  # Extract value from form element based on element type
+  defp value({"input", _attrs, _children} = input) do
     input_type = attr(input, "type") || "text"
 
     case String.downcase(input_type) do
@@ -331,11 +307,11 @@ defmodule PhoenixHtmldriver.Form do
     end
   end
 
-  defp extract_value({"textarea", _attrs, children}) do
+  defp value({"textarea", _attrs, children}) do
     Floki.text(children) |> String.trim()
   end
 
-  defp extract_value({"select", _attrs, _children} = select) do
+  defp value({"select", _attrs, _children} = select) do
     case Floki.find(select, "option[selected]") do
       [option | _] ->
         attr(option, "value") || Floki.text(option)
@@ -351,5 +327,29 @@ defmodule PhoenixHtmldriver.Form do
     end
   end
 
-  defp extract_value(_), do: nil
+  defp value(_), do: nil
+
+  # Parse form and extract default values from all fields
+  defp parse_form_values(form) do
+    form
+    |> Floki.find("input, textarea, select")
+    |> Enum.filter(&has_valid_name?/1)
+    |> Enum.map(&to_name_value_pair/1)
+    |> Enum.reject(fn {_name, val} -> is_nil(val) end)
+    |> Enum.into(%{})
+  end
+
+  # Checks if element has a valid name attribute
+  defp has_valid_name?(element) do
+    case attr(element, "name") do
+      nil -> false
+      "" -> false
+      _ -> true
+    end
+  end
+
+  # Transforms element to {name, value} pair
+  defp to_name_value_pair(element) do
+    {attr(element, "name"), value(element)}
+  end
 end
