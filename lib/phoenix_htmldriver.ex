@@ -186,41 +186,31 @@ defmodule PhoenixHtmldriver do
 
   ## Examples
 
-      path = current_path(session)
+      path = path(session)
       assert path == "/profile"
   """
-  @spec current_path(Session.t()) :: String.t()
-  defdelegate current_path(session), to: Session
+  @spec path(Session.t()) :: String.t()
+  defdelegate path(session), to: Session
 
   @doc """
   Gets the current response body.
 
   ## Examples
 
-      html = current_html(session)
+      html = html(session)
   """
-  @spec current_html(Session.t()) :: String.t()
-  defdelegate current_html(session), to: Session
+  @spec html(Session.t()) :: String.t()
+  defdelegate html(session), to: Session
 
   @doc """
   Finds an element by selector.
 
   ## Examples
 
-      element = find(session, ".user-name")
-      text = PhoenixHtmldriver.Element.text(element)
+      session
+      |> element(".user-name")
+      |> PhoenixHtmldriver.Element.text()
   """
-  @spec find(Session.t(), String.t()) :: {:ok, PhoenixHtmldriver.Element.t()} | {:error, String.t()}
-  defdelegate find(session, selector), to: Session
-
-  @doc """
-  Finds all elements matching the selector.
-
-  ## Examples
-
-      elements = find_all(session, ".list-item")
-      assert length(elements) == 5
-  """
-  @spec find_all(Session.t(), String.t()) :: [PhoenixHtmldriver.Element.t()]
-  defdelegate find_all(session, selector), to: Session
+  @spec element(Session.t(), String.t()) :: PhoenixHtmldriver.Element.t()
+  defdelegate element(session, selector), to: PhoenixHtmldriver.Element, as: :new
 end

@@ -60,43 +60,17 @@ defmodule PhoenixHtmldriver.Session do
   @doc """
   Gets the current path.
   """
-  @spec current_path(t()) :: String.t()
-  def current_path(%__MODULE__{response: response}) do
+  @spec path(t()) :: String.t()
+  def path(%__MODULE__{response: response}) do
     response.request_path
   end
 
   @doc """
   Gets the current HTML.
   """
-  @spec current_html(t()) :: String.t()
-  def current_html(%__MODULE__{response: response}) do
+  @spec html(t()) :: String.t()
+  def html(%__MODULE__{response: response}) do
     response.resp_body
-  end
-
-  @doc """
-  Finds an element by selector.
-  """
-  @spec find(t(), String.t()) :: {:ok, PhoenixHtmldriver.Element.t()} | {:error, String.t()}
-  def find(%__MODULE__{document: document}, selector) do
-    case Floki.find(document, selector) do
-      [] ->
-        {:error, "Element not found: #{selector}"}
-
-      [node | _] ->
-        {:ok, %PhoenixHtmldriver.Element{node: node}}
-
-      _ ->
-        {:error, "Invalid element"}
-    end
-  end
-
-  @doc """
-  Finds all elements matching the selector.
-  """
-  @spec find_all(t(), String.t()) :: [PhoenixHtmldriver.Element.t()]
-  def find_all(%__MODULE__{document: document}, selector) do
-    Floki.find(document, selector)
-    |> Enum.map(fn node -> %PhoenixHtmldriver.Element{node: node} end)
   end
 
   # Private functions for HTTP request handling

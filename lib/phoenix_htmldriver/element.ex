@@ -1,13 +1,63 @@
 defmodule PhoenixHtmldriver.Element do
   @moduledoc """
-  Represents an HTML element.
+  Represents an HTML element within a browser session.
+
+  An Element encapsulates element-specific operations while being found
+  from a parent Session.
+
+  ## Usage
+
+      session
+      |> Element.new("#profile")
+      |> Element.text()
+
+      session
+      |> Element.new(".alert")
+      |> Element.attr("class")
   """
+
+  alias PhoenixHtmldriver.Session
 
   defstruct [:node]
 
   @type t :: %__MODULE__{
           node: Floki.html_tree()
         }
+
+  @doc """
+  Creates a new Element from a Session.
+
+  Finds an element in the session's document using the given CSS selector,
+  and returns an Element struct.
+
+  ## Examples
+
+      alias PhoenixHtmldriver.Element
+
+      # Find by CSS selector
+      session
+      |> Element.new("#profile")
+      |> Element.text()
+
+      # Find by class
+      session
+      |> Element.new(".alert-success")
+      |> Element.attr("class")
+
+  ## Errors
+
+  Raises if the element is not found in the document.
+  """
+  @spec new(Session.t(), String.t()) :: t()
+  def new(%Session{document: document}, selector) do
+    case Floki.find(document, selector) do
+      [] ->
+        raise "Element not found: #{selector}"
+
+      [node | _] ->
+        %__MODULE__{node: node}
+    end
+  end
 
   @doc """
   Gets the text content of the element.
