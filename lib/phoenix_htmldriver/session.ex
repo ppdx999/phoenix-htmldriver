@@ -24,28 +24,17 @@ defmodule PhoenixHtmldriver.Session do
   @type params :: map() | keyword() | nil
 
   @doc """
-  Visits a path and returns a new session.
-
-  When called with a Session struct, preserves cookies from the previous request.
-  When called with a Plug.Conn, starts a fresh session without cookies.
+  Creates a new session from a Plug.Conn and visits a path.
 
   The conn should be created with Phoenix.ConnTest.build_conn/0 and have an endpoint set.
 
   ## Examples
 
-      # Fresh session (no cookies)
-      session = visit(conn, "/login")
-
-      # Preserves cookies from previous request
-      session = visit(session, "/dashboard")
+      session = Session.new(conn, "/login")
   """
-  @dialyzer {:nowarn_function, visit: 2}
-  @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
-  def visit(%__MODULE__{} = session, path) do
-    request(session, :get, path)
-  end
-
-  def visit(conn, path) do
+  @dialyzer {:nowarn_function, new: 2}
+  @spec new(Plug.Conn.t(), String.t()) :: t()
+  def new(conn, path) do
     # Get the endpoint from conn's private data (set by Phoenix.ConnTest.build_conn)
     endpoint = conn.private[:phoenix_endpoint]
 
@@ -66,6 +55,20 @@ defmodule PhoenixHtmldriver.Session do
       response: nil,
       path: nil
     }
+    request(session, :get, path)
+  end
+
+  @doc """
+  Visits a path using an existing session.
+
+  Preserves cookies from the previous request.
+
+  ## Examples
+
+      session = Session.get(session, "/dashboard")
+  """
+  @spec get(t(), String.t()) :: t()
+  def get(%__MODULE__{} = session, path) do
     request(session, :get, path)
   end
 
