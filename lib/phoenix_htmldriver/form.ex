@@ -228,71 +228,52 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   # Extract value based on element type
-  defp extract_value_by_type({"input", _attrs, _children} = element) do
-    extract_input_value(element)
+  defp extract_value_by_type({"input", _attrs, _children} = input) do
+    input_type = get_attribute(input, "type") || "text"
+
+    case String.downcase(input_type) do
+      "checkbox" ->
+        if get_attribute(input, "checked") do
+          get_attribute(input, "value") || "on"
+        else
+          nil
+        end
+
+      "radio" ->
+        if get_attribute(input, "checked") do
+          get_attribute(input, "value")
+        else
+          nil
+        end
+
+      type when type in ["file", "submit", "button", "reset", "image"] ->
+        nil
+
+      _ ->
+        # text, password, email, hidden, number, etc.
+        get_attribute(input, "value") || ""
+    end
   end
 
   defp extract_value_by_type({"textarea", _attrs, children}) do
     Floki.text(children) |> String.trim()
   end
 
-  defp extract_value_by_type({"select", _attrs, _children} = element) do
-    extract_select_value(element)
+  defp extract_value_by_type({"select", _attrs, _children} = select) do
+    case Floki.find(select, "option[selected]") do
+      [option | _] ->
+        get_attribute(option, "value") || Floki.text(option)
+
+      [] ->
+        case Floki.find(select, "option") do
+          [first_option | _] ->
+            get_attribute(first_option, "value") || Floki.text(first_option)
+
+          [] ->
+            ""
+        end
+    end
   end
 
   defp extract_value_by_type(_), do: nil
-
-  # Extract value from input element based on type
-  defp extract_input_value(input) do
-    input_type = get_attribute(input, "type") || "text"
-    extract_input_value_by_type(input, String.downcase(input_type))
-  end
-
-  defp extract_input_value_by_type(input, "checkbox") do
-    if get_attribute(input, "checked") do
-      get_attribute(input, "value") || "on"
-    else
-      nil
-    end
-  end
-
-  defp extract_input_value_by_type(input, "radio") do
-    if get_attribute(input, "checked") do
-      get_attribute(input, "value")
-    else
-      nil
-    end
-  end
-
-  defp extract_input_value_by_type(_input, type) when type in ["file", "submit", "button", "reset", "image"] do
-    nil
-  end
-
-  defp extract_input_value_by_type(input, _type) do
-    # text, password, email, hidden, number, etc.
-    get_attribute(input, "value") || ""
-  end
-
-  # Extract value from select element
-  defp extract_select_value(select) do
-    select
-    |> Floki.find("option[selected]")
-    |> extract_selected_option_value(select)
-  end
-
-  defp extract_selected_option_value([option | _], _select) do
-    get_attribute(option, "value") || Floki.text(option)
-  end
-
-  defp extract_selected_option_value([], select) do
-    select
-    |> Floki.find("option")
-    |> extract_first_option_value()
-  end
-
-  defp extract_first_option_value([first_option | _]) do
-    get_attribute(first_option, "value") || Floki.text(first_option)
-  end
-
-  defp extract_first_option_value([]), do: ""
 end
