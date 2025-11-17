@@ -39,9 +39,9 @@ defmodule PhoenixHtmldriver.FormTest do
         "password" => "",
         "_csrf_token" => "secret123"
       }
-      assert form.endpoint == @endpoint
-      assert form.cookies == %{}
-      assert form.path == "/test"
+      assert form.session.endpoint == @endpoint
+      assert form.session.cookies == %{}
+      assert form.session.path == "/test"
     end
 
     test "raises when form not found" do

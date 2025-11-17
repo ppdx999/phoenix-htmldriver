@@ -33,9 +33,9 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "#profile-link")
 
-      assert link.endpoint == @endpoint
-      assert link.cookies == %{}
-      assert link.path == "/test"
+      assert link.session.endpoint == @endpoint
+      assert link.session.cookies == %{}
+      assert link.session.path == "/test"
     end
 
     test "finds link by text content" do
@@ -49,7 +49,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "Login")
 
-      assert link.endpoint == @endpoint
+      assert link.session.endpoint == @endpoint
     end
 
     test "prefers CSS selector over text when both match" do
@@ -94,7 +94,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "Login")
 
-      assert link.endpoint == @endpoint
+      assert link.session.endpoint == @endpoint
     end
 
     test "raises when link not found by selector" do
@@ -135,7 +135,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "#profile")
 
-      assert link.endpoint == @endpoint
+      assert link.session.endpoint == @endpoint
     end
 
     test "finds link inside nested elements" do
@@ -152,7 +152,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "Dashboard")
 
-      assert link.endpoint == @endpoint
+      assert link.session.endpoint == @endpoint
     end
   end
 

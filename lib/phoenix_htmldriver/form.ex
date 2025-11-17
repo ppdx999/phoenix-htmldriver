@@ -31,17 +31,14 @@ defmodule PhoenixHtmldriver.Form do
   Submit, button, file, reset, and image inputs are ignored during parsing.
   """
 
-  alias PhoenixHtmldriver.{HTTP, StringMap}
+  alias PhoenixHtmldriver.{HTTP, StringMap, Session}
 
-  defstruct [:conn, :node, :values, :endpoint, :cookies, :path]
+  defstruct [:session, :node, :values]
 
   @type t :: %__MODULE__{
-          conn: Plug.Conn.t(),
+          session: Session.t(),
           node: Floki.html_node(),
-          values: map(),
-          endpoint: module(),
-          cookies: map(),
-          path: String.t()
+          values: map()
         }
 
   @doc """
@@ -84,28 +81,19 @@ defmodule PhoenixHtmldriver.Form do
 
   Raises if the form is not found in the document.
   """
-  @spec new(PhoenixHtmldriver.Session.t(), String.t()) :: t()
-  def new(%PhoenixHtmldriver.Session{conn: conn, document: document, endpoint: endpoint, cookies: cookies, path: path}, selector) do
-    # Find the form
-    form_node = Floki.find(document, selector)
+  @spec new(Session.t(), String.t()) :: t()
+  def new(%Session{document: document} = session, selector) do
+    case Floki.find(document, selector) do
+      [] ->
+        raise "Form not found: #{selector}"
 
-    if Enum.empty?(form_node) do
-      raise "Form not found: #{selector}"
+      [node | _] ->
+        %__MODULE__{
+          session: session,
+          node: node,
+          values: parse_form_values(node)
+        }
     end
-
-    [node | _] = form_node
-
-    # Parse form to get current DOM state (initial values)
-    values = parse_form_values(node)
-
-    %__MODULE__{
-      conn: conn,
-      node: node,
-      values: values,
-      endpoint: endpoint,
-      cookies: cookies,
-      path: path
-    }
   end
 
   @doc """
@@ -242,8 +230,8 @@ defmodule PhoenixHtmldriver.Form do
   A new `PhoenixHtmldriver.Session.t()` struct representing the response after
   form submission, including any redirects that were followed.
   """
-  @spec submit(t()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{conn: conn, node: node, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
+  @spec submit(t()) :: Session.t()
+  def submit(%__MODULE__{session: %Session{conn: conn, endpoint: endpoint, cookies: cookies, path: path}, node: node, values: current_values} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
     action = attr(node, "action") || path

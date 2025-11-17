@@ -17,16 +17,13 @@ defmodule PhoenixHtmldriver.Link do
       |> Link.click()
   """
 
-  alias PhoenixHtmldriver.HTTP
+  alias PhoenixHtmldriver.{HTTP, Session}
 
-  defstruct [:conn, :node, :endpoint, :cookies, :path]
+  defstruct [:session, :node]
 
   @type t :: %__MODULE__{
-          conn: Plug.Conn.t(),
-          node: Floki.html_node(),
-          endpoint: module(),
-          cookies: map(),
-          path: String.t()
+          session: Session.t(),
+          node: Floki.html_node()
         }
 
   @doc """
@@ -67,8 +64,8 @@ defmodule PhoenixHtmldriver.Link do
 
   Raises if the link is not found in the document.
   """
-  @spec new(PhoenixHtmldriver.Session.t(), String.t()) :: t()
-  def new(%PhoenixHtmldriver.Session{conn: conn, document: document, endpoint: endpoint, cookies: cookies, path: path}, selector_or_text) do
+  @spec new(Session.t(), String.t()) :: t()
+  def new(%Session{document: document} = session, selector_or_text) do
     # Try to find link by selector first
     link =
       case Floki.find(document, selector_or_text) do
@@ -91,11 +88,8 @@ defmodule PhoenixHtmldriver.Link do
     end
 
     %__MODULE__{
-      conn: conn,
-      node: link,
-      endpoint: endpoint,
-      cookies: cookies,
-      path: path
+      session: session,
+      node: link
     }
   end
 
@@ -122,8 +116,8 @@ defmodule PhoenixHtmldriver.Link do
   A new `PhoenixHtmldriver.Session.t()` struct representing the response after
   clicking the link, including any redirects that were followed.
   """
-  @spec click(t()) :: PhoenixHtmldriver.Session.t()
-  def click(%__MODULE__{conn: conn, node: node, endpoint: endpoint, cookies: cookies} = _link) do
+  @spec click(t()) :: Session.t()
+  def click(%__MODULE__{session: %Session{conn: conn, endpoint: endpoint, cookies: cookies}, node: node} = _link) do
     href = get_attribute(node, "href") || "/"
 
     HTTP.perform_request(:get, href, conn, endpoint, cookies)
