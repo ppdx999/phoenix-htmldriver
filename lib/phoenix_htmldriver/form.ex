@@ -155,15 +155,14 @@ defmodule PhoenixHtmldriver.Form do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
     action = get_attribute(node, "action") || path
-    method = get_attribute(node, "method") || "get"
-    method_atom = String.downcase(method) |> String.to_atom()
+    method = (get_attribute(node, "method") || "get") |> String.downcase() |> String.to_atom()
 
     # Use current form values (already includes all fields including CSRF tokens)
     form_values = current_values
 
     # Submit the form - handle GET specially (query params in URL)
     {final_response, final_cookies, new_document} =
-      case method_atom do
+      case method do
         :get ->
           # GET forms encode params in query string
           path_with_query = action <> "?" <> URI.encode_query(form_values)
