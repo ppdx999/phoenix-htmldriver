@@ -152,31 +152,34 @@ defmodule PhoenixHtmldriver do
 
   ## Examples
 
+      import PhoenixHtmldriver.Assertions
       assert_text(session, "Welcome back")
   """
   @spec assert_text(Session.t(), String.t()) :: Session.t()
-  defdelegate assert_text(session, text), to: Session
+  defdelegate assert_text(session, text), to: PhoenixHtmldriver.Assertions
 
   @doc """
   Asserts that an element matching the selector is present.
 
   ## Examples
 
+      import PhoenixHtmldriver.Assertions
       assert_selector(session, ".alert-success")
       assert_selector(session, "#user-profile")
   """
   @spec assert_selector(Session.t(), String.t()) :: Session.t()
-  defdelegate assert_selector(session, selector), to: Session
+  defdelegate assert_selector(session, selector), to: PhoenixHtmldriver.Assertions
 
   @doc """
   Asserts that an element matching the selector is not present.
 
   ## Examples
 
+      import PhoenixHtmldriver.Assertions
       refute_selector(session, ".alert-danger")
   """
   @spec refute_selector(Session.t(), String.t()) :: Session.t()
-  defdelegate refute_selector(session, selector), to: Session
+  defdelegate refute_selector(session, selector), to: PhoenixHtmldriver.Assertions
 
   @doc """
   Gets the current path of the session.

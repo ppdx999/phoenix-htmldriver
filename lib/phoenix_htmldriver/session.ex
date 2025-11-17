@@ -7,7 +7,6 @@ defmodule PhoenixHtmldriver.Session do
   `submit_form`) carries forward cookies from the previous response.
   """
 
-  import ExUnit.Assertions
   alias PhoenixHtmldriver.CookieJar
 
   defstruct [:conn, :document, :response, :endpoint, :cookies, :path]
@@ -56,35 +55,6 @@ defmodule PhoenixHtmldriver.Session do
 
     # Start with empty cookies (monoid identity)
     request(:get, path, conn, endpoint, CookieJar.empty())
-  end
-
-  @doc """
-  Asserts that text is present in the response.
-  """
-  @spec assert_text(t(), String.t()) :: t()
-  def assert_text(%__MODULE__{response: response} = session, text) do
-    assert response.resp_body =~ text, "Expected to find text: #{text}"
-    session
-  end
-
-  @doc """
-  Asserts that an element matching the selector is present.
-  """
-  @spec assert_selector(t(), String.t()) :: t()
-  def assert_selector(%__MODULE__{document: document} = session, selector) do
-    elements = Floki.find(document, selector)
-    assert length(elements) > 0, "Expected to find element: #{selector}"
-    session
-  end
-
-  @doc """
-  Asserts that an element matching the selector is not present.
-  """
-  @spec refute_selector(t(), String.t()) :: t()
-  def refute_selector(%__MODULE__{document: document} = session, selector) do
-    elements = Floki.find(document, selector)
-    assert length(elements) == 0, "Expected not to find element: #{selector}"
-    session
   end
 
   @doc """
