@@ -188,7 +188,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       assert %Session{} = result
     end
 
-    test "defaults to / when href is missing" do
+    test "raises when href is missing" do
       html = """
       <div>
         <a id="no-href">Click Me</a>
@@ -198,9 +198,9 @@ defmodule PhoenixHtmldriver.LinkTest do
       session = build_session_with_links(html)
       link = Link.new(session, "#no-href")
 
-      result = Link.click(link)
-
-      assert %Session{} = result
+      assert_raise RuntimeError, "Link has no href attribute", fn ->
+        Link.click(link)
+      end
     end
 
     test "handles absolute paths" do

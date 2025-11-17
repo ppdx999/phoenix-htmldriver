@@ -17,7 +17,7 @@ defmodule PhoenixHtmldriver.Link do
       |> Link.click()
   """
 
-  alias PhoenixHtmldriver.{HTTP, Session}
+  alias PhoenixHtmldriver.Session
 
   defstruct [:session, :node]
 
@@ -66,31 +66,14 @@ defmodule PhoenixHtmldriver.Link do
   """
   @spec new(Session.t(), String.t()) :: t()
   def new(%Session{document: document} = session, selector_or_text) do
-    # Try to find link by selector first
-    link =
-      case Floki.find(document, selector_or_text) do
-        [] ->
-          # If not found, try to find by text
-          Floki.find(document, "a")
-          |> Enum.find(fn node ->
-            Floki.text(node) |> String.trim() == selector_or_text
-          end)
-
-        [node | _] ->
-          node
-
-        _ ->
-          nil
-      end
-
-    if !link do
-      raise "Link not found: #{selector_or_text}"
+    case link(document, selector_or_text) do
+      nil -> raise "Link not found: #{selector_or_text}"
+      found_link ->
+        %__MODULE__{
+          session: session,
+          node: found_link
+        }
     end
-
-    %__MODULE__{
-      session: session,
-      node: link
-    }
   end
 
   @doc """
@@ -111,6 +94,11 @@ defmodule PhoenixHtmldriver.Link do
       |> Link.new("Login")
       |> Link.click()
 
+      # Click by class
+      session
+      |> Link.new("a.nav-link")
+      |> Link.click()
+
   ## Returns
 
   A new `PhoenixHtmldriver.Session.t()` struct representing the response after
@@ -118,16 +106,41 @@ defmodule PhoenixHtmldriver.Link do
   """
   @spec click(t()) :: Session.t()
   def click(%__MODULE__{session: %Session{conn: conn, endpoint: endpoint, cookies: cookies}, node: node} = _link) do
-    href = get_attribute(node, "href") || "/"
-
-    HTTP.perform_request(:get, href, conn, endpoint, cookies)
+    case attr(node, "href") do
+      nil -> raise "Link has no href attribute"
+      href -> Session.request(:get, href, conn, endpoint, cookies)
+    end
   end
 
   # Helper to get attribute value
-  defp get_attribute(node, name) do
+  defp attr(node, name) do
     case Floki.attribute(node, name) do
       [value | _] -> value
       [] -> nil
     end
+  end
+
+  defp find(node, selector) do
+    case Floki.find(node, selector) do
+      [] -> nil
+      [found | _] -> found
+    end
+  end
+
+  defp link(node, selector_or_text) do
+    link_by_selector(node, selector_or_text) ||
+      link_by_text(node, selector_or_text)
+  end
+
+  defp link_by_selector(node, selector) do
+    find(node, selector)
+  end
+
+  defp link_by_text(node, text) do
+    Floki.find(node, "a") |> Enum.find(&match(&1, text))
+  end
+
+  defp match(node, text) do
+    Floki.text(node) |> String.trim() == text
   end
 end

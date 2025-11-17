@@ -31,7 +31,7 @@ defmodule PhoenixHtmldriver.Form do
   Submit, button, file, reset, and image inputs are ignored during parsing.
   """
 
-  alias PhoenixHtmldriver.{HTTP, StringMap, Session}
+  alias PhoenixHtmldriver.{StringMap, Session}
 
   defstruct [:session, :node, :values]
 
@@ -255,8 +255,8 @@ defmodule PhoenixHtmldriver.Form do
     end
 
     # Submit the form
-    # HTTP.perform_request handles method-specific details (query string for GET, body for POST)
-    HTTP.perform_request(method, action, conn, endpoint, cookies, current_values)
+    # Session.request handles method-specific details (query string for GET, body for POST)
+    Session.request(method, action, conn, endpoint, cookies, current_values)
   end
 
   # Helper to get attribute value
