@@ -59,37 +59,6 @@ defmodule PhoenixHtmldriver.Session do
   end
 
   @doc """
-  Clicks a link.
-  """
-  @spec click_link(t(), String.t()) :: t()
-  def click_link(%__MODULE__{conn: conn, document: document, endpoint: endpoint, cookies: cookies} = _session, selector_or_text) do
-    # Try to find link by selector first
-    link =
-      case Floki.find(document, selector_or_text) do
-        [] ->
-          # If not found, try to find by text
-          Floki.find(document, "a")
-          |> Enum.find(fn node ->
-            Floki.text(node) |> String.trim() == selector_or_text
-          end)
-
-        [node | _] ->
-          node
-
-        _ ->
-          nil
-      end
-
-    if !link do
-      raise "Link not found: #{selector_or_text}"
-    end
-
-    href = get_attribute(link, "href") || "/"
-
-    HTTP.perform_request(:get, href, conn, endpoint, cookies)
-  end
-
-  @doc """
   Asserts that text is present in the response.
   """
   @spec assert_text(t(), String.t()) :: t()
@@ -158,13 +127,5 @@ defmodule PhoenixHtmldriver.Session do
   def find_all(%__MODULE__{document: document}, selector) do
     Floki.find(document, selector)
     |> Enum.map(fn node -> %PhoenixHtmldriver.Element{node: node} end)
-  end
-
-  # Helper to get attribute value
-  defp get_attribute(node, name) do
-    case Floki.attribute(node, name) do
-      [value | _] -> value
-      [] -> nil
-    end
   end
 end

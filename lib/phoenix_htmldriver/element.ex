@@ -3,6 +3,8 @@ defmodule PhoenixHtmldriver.Element do
   Represents an HTML element.
   """
 
+  alias PhoenixHtmldriver.FlokiHelpers
+
   defstruct [:node]
 
   @type t :: %__MODULE__{
@@ -24,10 +26,7 @@ defmodule PhoenixHtmldriver.Element do
   """
   @spec attr(t(), String.t()) :: String.t() | nil
   def attr(%__MODULE__{node: node}, name) do
-    case Floki.attribute(node, name) do
-      [value | _] -> value
-      [] -> nil
-    end
+    FlokiHelpers.attr(node, name)
   end
 
   @doc """

@@ -31,7 +31,7 @@ defmodule PhoenixHtmldriver.Form do
   Submit, button, file, reset, and image inputs are ignored during parsing.
   """
 
-  alias PhoenixHtmldriver.HTTP
+  alias PhoenixHtmldriver.{HTTP, FlokiHelpers}
 
   defstruct [:conn, :node, :values, :endpoint, :cookies, :path]
 
@@ -279,10 +279,7 @@ defmodule PhoenixHtmldriver.Form do
 
   # Helper to get attribute value
   defp get_attribute(node, name) do
-    case Floki.attribute(node, name) do
-      [value | _] -> value
-      [] -> nil
-    end
+    FlokiHelpers.attr(node, name)
   end
 
   # Normalize field name to string (atom -> string)

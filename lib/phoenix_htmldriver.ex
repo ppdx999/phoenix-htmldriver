@@ -126,15 +126,26 @@ defmodule PhoenixHtmldriver do
   defdelegate form(session, selector), to: PhoenixHtmldriver.Form, as: :new
 
   @doc """
-  Clicks a link.
+  Gets a link from the current session.
+
+  Returns a Link struct that can be clicked using the Link module.
 
   ## Examples
 
-      session = click_link(session, "#profile-link")
-      session = click_link(session, "View Profile")
+      alias PhoenixHtmldriver.Link
+
+      # Find by selector
+      session
+      |> link("#profile-link")
+      |> Link.click()
+
+      # Find by text
+      session
+      |> link("View Profile")
+      |> Link.click()
   """
-  @spec click_link(Session.t(), String.t()) :: Session.t()
-  defdelegate click_link(session, selector_or_text), to: Session
+  @spec link(Session.t(), String.t()) :: PhoenixHtmldriver.Link.t()
+  defdelegate link(session, selector_or_text), to: PhoenixHtmldriver.Link, as: :new
 
   @doc """
   Asserts that text is present in the response.
