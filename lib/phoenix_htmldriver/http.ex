@@ -65,9 +65,23 @@ defmodule PhoenixHtmldriver.HTTP do
   end
 
   def perform_request(method, path, endpoint, cookies, params, remaining_redirects) do
+    # For GET requests, encode params in query string
+    {final_path, body_params} =
+      if method == :get && params && params != %{} do
+        query_string = URI.encode_query(params)
+        final_path = if String.contains?(path, "?") do
+          path <> "&" <> query_string
+        else
+          path <> "?" <> query_string
+        end
+        {final_path, nil}
+      else
+        {path, params}
+      end
+
     # Build and execute request
     response =
-      build_conn(method, path, endpoint, params)
+      build_conn(method, final_path, endpoint, body_params)
       |> CookieJar.put_into_request(cookies)
       |> endpoint.call([])
 

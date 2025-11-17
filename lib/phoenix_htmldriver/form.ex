@@ -174,21 +174,10 @@ defmodule PhoenixHtmldriver.Form do
       """
     end
 
-    # Use current form values (already includes all fields including CSRF tokens)
-    form_values = current_values
-
-    # Submit the form - handle GET specially (query params in URL)
+    # Submit the form
+    # HTTP.perform_request handles method-specific details (query string for GET, body for POST)
     {final_response, final_cookies, new_document} =
-      case method do
-        :get ->
-          # GET forms encode params in query string
-          path_with_query = action <> "?" <> URI.encode_query(form_values)
-          HTTP.perform_request(:get, path_with_query, endpoint, cookies)
-
-        :post ->
-          # POST forms send params in body
-          HTTP.perform_request(:post, action, endpoint, cookies, form_values)
-      end
+      HTTP.perform_request(method, action, endpoint, cookies, current_values)
 
     # Return a new Session struct
     # Note: We need to get the original conn from somewhere
