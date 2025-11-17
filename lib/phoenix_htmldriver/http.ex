@@ -42,29 +42,32 @@ defmodule PhoenixHtmldriver.HTTP do
 
   ## Returns
 
-  A tuple of `{response, cookies, document}` where:
+  A `PhoenixHtmldriver.Session.t()` struct with:
+  - `conn` is the original test connection
   - `response` is the final `Plug.Conn` after all redirects
   - `cookies` is the merged cookie jar
   - `document` is the parsed Floki HTML tree
+  - `endpoint` is the Phoenix endpoint module
+  - `path` is the final request path
 
   ## Examples
 
-      iex> perform_request(:get, "/", MyApp.Endpoint, %{})
-      {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}, [{...}]}
+      iex> perform_request(:get, "/", conn, MyApp.Endpoint, %{})
+      %PhoenixHtmldriver.Session{...}
 
-      iex> perform_request(:post, "/login", MyApp.Endpoint, cookies, %{username: "alice"})
-      {%Plug.Conn{status: 200, ...}, %{"session" => %{...}}, [...]}
+      iex> perform_request(:post, "/login", conn, MyApp.Endpoint, cookies, %{username: "alice"})
+      %PhoenixHtmldriver.Session{...}
 
   """
-  @spec perform_request(method(), String.t(), endpoint(), cookies(), params(), non_neg_integer()) ::
-          {Plug.Conn.t(), cookies(), Floki.html_tree()}
-  def perform_request(method, path, endpoint, cookies, params \\ nil, max_redirects \\ 5)
+  @spec perform_request(method(), String.t(), Plug.Conn.t(), endpoint(), cookies(), params(), non_neg_integer()) ::
+          PhoenixHtmldriver.Session.t()
+  def perform_request(method, path, conn, endpoint, cookies, params \\ nil, max_redirects \\ 5)
 
-  def perform_request(_method, _path, _endpoint, _cookies, _params, 0) do
+  def perform_request(_method, _path, _conn, _endpoint, _cookies, _params, 0) do
     raise "Too many redirects (max 5)"
   end
 
-  def perform_request(method, path, endpoint, cookies, params, remaining_redirects) do
+  def perform_request(method, path, conn, endpoint, cookies, params, remaining_redirects) do
     # For GET requests, encode params in query string
     {final_path, body_params} =
       if method == :get && params && params != %{} do
@@ -99,12 +102,20 @@ defmodule PhoenixHtmldriver.HTTP do
           end
 
         # Recursively follow redirect with GET request
-        perform_request(:get, location, endpoint, merged_cookies, nil, remaining_redirects - 1)
+        perform_request(:get, location, conn, endpoint, merged_cookies, nil, remaining_redirects - 1)
 
       _ ->
         # Not a redirect, parse and return
         {:ok, document} = Floki.parse_document(response.resp_body)
-        {response, merged_cookies, document}
+
+        %PhoenixHtmldriver.Session{
+          conn: conn,
+          document: document,
+          response: response,
+          endpoint: endpoint,
+          cookies: merged_cookies,
+          path: response.request_path
+        }
     end
   end
 

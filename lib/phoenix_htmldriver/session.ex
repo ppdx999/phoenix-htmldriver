@@ -39,17 +39,7 @@ defmodule PhoenixHtmldriver.Session do
   """
   @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
   def visit(%__MODULE__{conn: conn, endpoint: endpoint, cookies: cookies}, path) do
-    {final_response, final_cookies, document} =
-      HTTP.perform_request(:get, path, endpoint, cookies)
-
-    %__MODULE__{
-      conn: conn,
-      document: document,
-      response: final_response,
-      endpoint: endpoint,
-      cookies: final_cookies,
-      path: final_response.request_path
-    }
+    HTTP.perform_request(:get, path, conn, endpoint, cookies)
   end
 
   def visit(conn, path) do
@@ -65,17 +55,7 @@ defmodule PhoenixHtmldriver.Session do
     end
 
     # Start with empty cookies (monoid identity)
-    {final_response, final_cookies, document} =
-      HTTP.perform_request(:get, path, endpoint, CookieJar.empty())
-
-    %__MODULE__{
-      conn: conn,
-      document: document,
-      response: final_response,
-      endpoint: endpoint,
-      cookies: final_cookies,
-      path: final_response.request_path
-    }
+    HTTP.perform_request(:get, path, conn, endpoint, CookieJar.empty())
   end
 
   @doc """
@@ -106,17 +86,7 @@ defmodule PhoenixHtmldriver.Session do
 
     href = get_attribute(link, "href") || "/"
 
-    {final_response, final_cookies, new_document} =
-      HTTP.perform_request(:get, href, endpoint, cookies)
-
-    %__MODULE__{
-      conn: conn,
-      document: new_document,
-      response: final_response,
-      endpoint: endpoint,
-      cookies: final_cookies,
-      path: final_response.request_path
-    }
+    HTTP.perform_request(:get, href, conn, endpoint, cookies)
   end
 
   @doc """

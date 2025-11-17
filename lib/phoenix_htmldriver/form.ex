@@ -3,21 +3,40 @@ defmodule PhoenixHtmldriver.Form do
   Represents a form within a browser session.
 
   A Form encapsulates form-specific state and operations while inheriting
-  the session context (endpoint, cookies, etc.) from the parent Session.
+  the session context (conn, endpoint, cookies, path) from the parent Session.
+
+  Forms automatically parse all field values from the DOM, including hidden inputs
+  like CSRF tokens. You can modify field values with `fill/2` and submit the form
+  with `submit/1`.
 
   ## Usage
 
       session
-      |> Session.form("#login-form")
+      |> Form.new("#login-form")
       |> Form.fill(%{username: "alice", password: "secret"})
       |> Form.submit()
+
+  ## Supported Field Types
+
+  - Text inputs (text, email, password, search, tel, url, etc.)
+  - Number inputs (number, range)
+  - Date/time inputs (date, time, datetime-local, month, week)
+  - Color picker (color)
+  - Hidden inputs (hidden)
+  - Checkboxes (checkbox) - use `fill/2` to check, `uncheck/2` to uncheck
+  - Radio buttons (radio)
+  - Select dropdowns (select)
+  - Text areas (textarea)
+
+  Submit, button, file, reset, and image inputs are ignored during parsing.
   """
 
   alias PhoenixHtmldriver.HTTP
 
-  defstruct [:node, :values, :endpoint, :cookies, :path]
+  defstruct [:conn, :node, :values, :endpoint, :cookies, :path]
 
   @type t :: %__MODULE__{
+          conn: Plug.Conn.t(),
           node: Floki.html_node(),
           values: map(),
           endpoint: module(),
@@ -28,20 +47,45 @@ defmodule PhoenixHtmldriver.Form do
   @doc """
   Creates a new Form from a Session.
 
-  Finds the form by selector, parses its default values, and returns
-  a Form struct ready for filling and submitting.
+  Finds the form element in the session's document using the given CSS selector,
+  parses all field values from the DOM (including hidden inputs, selected options,
+  and checked checkboxes/radios), and returns a Form struct ready for filling and
+  submitting.
+
+  ## Field Parsing
+
+  The form automatically parses and includes:
+  - Text inputs with their current values
+  - Hidden inputs (like CSRF tokens)
+  - Selected options from select elements
+  - Checked checkboxes and radio buttons
+  - Textarea content
+
+  Fields without values (unchecked checkboxes, unselected radios, empty inputs)
+  are not included in the initial values map.
 
   ## Examples
 
       alias PhoenixHtmldriver.Form
 
+      # Find and parse a form
       session
       |> Form.new("#login-form")
       |> Form.fill(username: "alice")
       |> Form.submit()
+
+      # Form with CSRF token automatically included
+      session
+      |> Form.new("form[action='/users']")
+      |> Form.fill(name: "Alice")
+      |> Form.submit()
+
+  ## Errors
+
+  Raises if the form is not found in the document.
   """
   @spec new(PhoenixHtmldriver.Session.t(), String.t()) :: t()
-  def new(%PhoenixHtmldriver.Session{document: document, endpoint: endpoint, cookies: cookies, path: path}, selector) do
+  def new(%PhoenixHtmldriver.Session{conn: conn, document: document, endpoint: endpoint, cookies: cookies, path: path}, selector) do
     # Find the form
     form_node = Floki.find(document, selector)
 
@@ -55,6 +99,7 @@ defmodule PhoenixHtmldriver.Form do
     values = parse_form_values(node)
 
     %__MODULE__{
+      conn: conn,
       node: node,
       values: values,
       endpoint: endpoint,
@@ -66,8 +111,9 @@ defmodule PhoenixHtmldriver.Form do
   @doc """
   Fills form fields with the given values.
 
-  Merges the provided field values with the form's current values.
-  Accepts both maps and keyword lists. Field names can be atoms or strings.
+  Merges the provided field values with the form's current values, overriding
+  any existing values for the same fields. Accepts both maps and keyword lists.
+  Field names can be atoms or strings (they are normalized to strings internally).
 
   ## Examples
 
@@ -89,11 +135,20 @@ defmodule PhoenixHtmldriver.Form do
 
   ## Field values
 
-  - Text inputs: any string value
+  All field values should be strings:
+
+  - Text inputs (text, email, password, etc.): any string value
+  - Number inputs (number, range): numeric value as string (e.g., "25", "50")
+  - Date/time inputs (date, time, etc.): formatted string (e.g., "2024-01-01", "09:00")
+  - Color input: hex color as string (e.g., "#ff0000")
   - Select: option value as string
   - Radio: option value as string
   - Checkbox (checked): "on" or the input's value attribute
   - Checkbox (unchecked): use `uncheck/2` to remove the field
+  - Hidden inputs: any string value
+
+  Note: PhoenixHtmldriver does not validate field values. It's your responsibility
+  to provide valid values for each field type.
   """
   @spec fill(t(), map() | keyword()) :: t()
   def fill(%__MODULE__{values: current_values} = form, fields) do
@@ -110,13 +165,30 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   @doc """
-  Unchecks a checkbox by removing its field from the form.
+  Unchecks a checkbox by removing its field from the form values.
+
+  When a checkbox is unchecked in HTML forms, its field is not submitted to the server.
+  This function mimics that behavior by removing the field from the form's values map.
+
+  Accepts both string and atom field names.
 
   ## Examples
 
+      # Uncheck a checkbox that was checked by fill/2
       form
       |> fill(terms: "on")
-      |> uncheck("terms")
+      |> uncheck(:terms)
+      |> submit()
+
+      # Uncheck a checkbox that was parsed as checked from the DOM
+      form
+      |> uncheck("newsletter")
+      |> submit()
+
+      # Can be used with any field, not just checkboxes
+      form
+      |> fill(optional_field: "value")
+      |> uncheck(:optional_field)
       |> submit()
   """
   @spec uncheck(t(), String.t() | atom()) :: t()
@@ -131,7 +203,28 @@ defmodule PhoenixHtmldriver.Form do
   Submits the form with its current values. Use `fill/2` to set values before submitting.
 
   All form fields (including hidden inputs like CSRF tokens) are automatically
-  included from the form's current values.
+  included from the form's current values. The form's action and method attributes
+  are used to determine where and how to submit.
+
+  ## Form Method Validation
+
+  Per HTML specification, only GET and POST methods are supported. If the form
+  specifies a different method (PUT, PATCH, DELETE), an ArgumentError is raised.
+
+  For PUT/PATCH/DELETE requests in Phoenix, use the method override pattern:
+
+      <form method="post">
+        <input type="hidden" name="_method" value="put" />
+      </form>
+
+  PhoenixHtmldriver will submit as POST with the `_method` parameter, and
+  Phoenix's `Plug.MethodOverride` will handle the conversion.
+
+  ## Form Action
+
+  - If the form has an `action` attribute, it will be used as the submit path
+  - If no `action` is specified, the form submits to the current page path
+  - Default method is GET if not specified
 
   ## Examples
 
@@ -149,9 +242,14 @@ defmodule PhoenixHtmldriver.Form do
       |> fill(%{email: "user@example.com"})
       |> fill(%{password: "secret"})
       |> submit()
+
+  ## Returns
+
+  A new `PhoenixHtmldriver.Session.t()` struct representing the response after
+  form submission, including any redirects that were followed.
   """
   @spec submit(t()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{node: node, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
+  def submit(%__MODULE__{conn: conn, node: node, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
     action = get_attribute(node, "action") || path
@@ -176,20 +274,7 @@ defmodule PhoenixHtmldriver.Form do
 
     # Submit the form
     # HTTP.perform_request handles method-specific details (query string for GET, body for POST)
-    {final_response, final_cookies, new_document} =
-      HTTP.perform_request(method, action, endpoint, cookies, current_values)
-
-    # Return a new Session struct
-    # Note: We need to get the original conn from somewhere
-    # This is a design decision - for now we'll create a minimal session
-    %PhoenixHtmldriver.Session{
-      conn: nil,  # Will be set by Session module
-      document: new_document,
-      response: final_response,
-      endpoint: endpoint,
-      cookies: final_cookies,
-      path: final_response.request_path
-    }
+    HTTP.perform_request(method, action, conn, endpoint, cookies, current_values)
   end
 
   # Helper to get attribute value
@@ -210,8 +295,8 @@ defmodule PhoenixHtmldriver.Form do
     |> Floki.find("input, textarea, select")
     |> Enum.reduce(%{}, fn element, acc ->
       case extract_field_value(element) do
-        {name, value} when is_binary(name) -> Map.put(acc, name, value)
-        nil -> acc
+        {name, value} when is_binary(name) and not is_nil(value) -> Map.put(acc, name, value)
+        _ -> acc
       end
     end)
   end
