@@ -15,10 +15,9 @@ defmodule PhoenixHtmldriver.Form do
 
   alias PhoenixHtmldriver.HTTP
 
-  defstruct [:selector, :node, :values, :endpoint, :cookies, :path]
+  defstruct [:node, :values, :endpoint, :cookies, :path]
 
   @type t :: %__MODULE__{
-          selector: String.t(),
           node: Floki.html_node(),
           values: map(),
           endpoint: module(),
@@ -56,7 +55,6 @@ defmodule PhoenixHtmldriver.Form do
     values = parse_form_values(node)
 
     %__MODULE__{
-      selector: selector,
       node: node,
       values: values,
       endpoint: endpoint,
@@ -178,7 +176,7 @@ defmodule PhoenixHtmldriver.Form do
       |> submit()
   """
   @spec submit(t()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
+  def submit(%__MODULE__{node: node, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
     action = get_attribute(node, "action") || path
