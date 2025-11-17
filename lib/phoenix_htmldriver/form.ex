@@ -222,13 +222,13 @@ defmodule PhoenixHtmldriver.Form do
     if !name || name == "" do
       nil
     else
-      value = extract_value_by_type(element)
+      value = extract_value(element)
       {name, value}
     end
   end
 
   # Extract value based on element type
-  defp extract_value_by_type({"input", _attrs, _children} = input) do
+  defp extract_value({"input", _attrs, _children} = input) do
     input_type = get_attribute(input, "type") || "text"
 
     case String.downcase(input_type) do
@@ -255,11 +255,11 @@ defmodule PhoenixHtmldriver.Form do
     end
   end
 
-  defp extract_value_by_type({"textarea", _attrs, children}) do
+  defp extract_value({"textarea", _attrs, children}) do
     Floki.text(children) |> String.trim()
   end
 
-  defp extract_value_by_type({"select", _attrs, _children} = select) do
+  defp extract_value({"select", _attrs, _children} = select) do
     case Floki.find(select, "option[selected]") do
       [option | _] ->
         get_attribute(option, "value") || Floki.text(option)
@@ -275,5 +275,5 @@ defmodule PhoenixHtmldriver.Form do
     end
   end
 
-  defp extract_value_by_type(_), do: nil
+  defp extract_value(_), do: nil
 end
