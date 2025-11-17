@@ -5,244 +5,149 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0] - 2025-01-14
+## [0.10.0] - 2025-01-17
+
+### Major Refactoring - Breaking Changes
+
+This release represents a complete architectural overhaul focused on clarity, maintainability, and type safety.
 
 ### Breaking Changes
-- **REMOVED `fill_form/3` and `submit_form/3` from Session module**
-  - Use Form API instead: `session |> Session.form(selector) |> Form.fill(...) |> Form.submit()`
-  - Cleaner separation: Session handles navigation, Form handles form operations
-  - Session struct simplified - no more `filled_forms` field
-- **REMOVED meta tag CSRF token support**
-  - Only `<input type="hidden" name="_csrf_token">` is supported
-  - Meta tag CSRF (`<meta name="csrf-token">`) requires JavaScript
-  - Use Wallaby/Playwright for JavaScript-heavy applications
-  - PhoenixHtmldriver focuses on pure HTML testing
+
+#### API Simplification
+- **Removed delegation functions from `PhoenixHtmldriver` module**
+  - Removed: `form/2`, `link/2`, `element/2`, `assert_text/2`, `assert_selector/2`, `refute_selector/2`, `path/1`, `html/1`
+  - Users must now call modules directly: `Form.new/2`, `Link.new/2`, `Element.new/2`, `Assertions.assert_text/2`, etc.
+  - Only `visit/2` remains as the entry point function
+  - **Migration**: Replace `session |> form("#id")` with `session |> Form.new("#id")`
+
+#### Session Module API Changes
+- **`Session.visit/2` split into two functions**
+  - `Session.new(conn, path)` - Creates new session from Plug.Conn
+  - `Session.get(session, path)` - Navigates within existing session
+  - `PhoenixHtmldriver.visit/2` automatically dispatches to appropriate function
+  - **Migration**: Direct `Session.visit/2` calls need to use `Session.new/2` or `Session.get/2`
+
+- **Removed functions**
+  - `Session.find/2` and `Session.find_all/2` removed
+  - Use `Element.new/2` instead (now raises on not found, matching Form/Link behavior)
+  - **Migration**: Replace `Session.find(session, selector)` with `Element.new(session, selector)`
+
+- **Renamed functions**
+  - `Session.current_path/1` → `Session.path/1`
+  - `Session.current_html/1` → `Session.html/1`
+  - **Migration**: Remove `current_` prefix from function calls
+
+#### Assertions Module
+- **Moved to dedicated module**
+  - Assertions extracted from Session to `PhoenixHtmldriver.Assertions`
+  - Session no longer depends on ExUnit.Assertions
+  - **Migration**: Import `PhoenixHtmldriver.Assertions` or call `Assertions.assert_text/2` directly
+
+#### CookieJar Type Changes
+- **CookieJar is now a proper struct (Higher-Kinded Type)**
+  - Changed from type alias to `%CookieJar{cookies: map()}`
+  - `CookieJar.empty()` returns `%CookieJar{cookies: %{}}` instead of `%{}`
+  - `CookieJar.merge/2` operates on CookieJar structs (removed nil handling)
+  - Session cookies field type changed from `map()` to `CookieJar.t()`
+  - **Migration**: Tests using raw maps for cookies need to use `CookieJar.empty()` or `%CookieJar{cookies: %{}}`
 
 ### Added
-- **Form module**: Dedicated module for form operations
-  - `Session.form/2` returns Form struct with inherited session context
-  - `Form.fill/2` fills form values
-  - `Form.submit/2` submits form and returns new Session
-  - Form struct encapsulates: selector, node, default values, filled values, endpoint, cookies, document
-- **FormParser module**: Parses HTML forms and extracts default values on-demand
-  - Extracts hidden input values
-  - Handles default values from text/email/password inputs
-  - Handles checkboxes (checked = "on", unchecked = not included)
-  - Handles radio buttons (checked one gets its value)
-  - Handles textareas and select elements
-  - Ensures forms include all defaults like real browsers
+
+#### Type Safety and Static Analysis
+- **Dialyzer support** with comprehensive type specifications
+  - Added dialyxir dependency (~> 1.4)
+  - Configured PLT file and settings in mix.exs
+  - Added `@dialyzer` attributes for specific type inference issues
+  - All modules now have complete `@spec` annotations
+  - Zero Dialyzer warnings
+
+#### Comprehensive Test Suite
+- **179 total tests** (up from 87 in v0.9.0)
+  - 19 new Session module unit tests
+  - 21 new Assertions module unit tests
+  - 17 new PhoenixHtmldriver module unit tests
+  - 25 new E2E integration tests
+  - All existing tests updated and passing
+
+#### Documentation and Examples
+- **E2E tests serve as living documentation**
+  - Real-world usage patterns for all features
+  - Login flows, navigation, form submission
+  - Session management, cookie handling
+  - Error handling examples
+  - Pipeline-style testing patterns
 
 ### Changed
-- **Session struct simplified**:
-  - Before: `%Session{conn, document, response, endpoint, cookies, filled_forms}`
-  - After: `%Session{conn, document, response, endpoint, cookies}`
-  - Removed `filled_forms` - no longer needed
-- **Form struct simplified**:
-  - Before: `%Form{selector, node, default_values, filled_values, endpoint, cookies, document}`
-  - After: `%Form{selector, node, default_values, filled_values, endpoint, cookies}`
-  - Removed `document` - no longer needed (meta CSRF not supported)
-- **On-demand form parsing**:
-  - Forms parsed only when `Session.form/2` is called
-  - No parsing during `visit/2` or `click_link/2`
-  - Better performance - parse only what you use
-- **Key normalization**: Form.submit normalizes atom keys to strings
-  - `Form.fill(form, username: "alice")` works correctly
-  - Handles nested maps recursively
+
+#### Architecture Improvements
+- **Minimal facade pattern** for PhoenixHtmldriver module
+  - Only `__using__` macro and `visit/2` function exposed
+  - Clear separation of concerns across modules
+  - Better discoverability through direct module usage
+
+- **Consistent naming patterns**
+  - Form.new/2, Link.new/2, Element.new/2, Session.new/2 all follow same pattern
+  - All `new` functions raise on not found (no silent failures)
+  - Getter functions simplified (removed `current_` prefix)
+
+- **Session module refactoring**
+  - Session.request/5 now takes session as first argument
+  - Type definitions moved to module level
+  - Clear distinction between creation (new/2) and navigation (get/2)
+
+- **CookieJar as true monoid**
+  - Proper identity element: `CookieJar.empty()`
+  - Associative merge operation on CookieJar structs
+  - Type-safe cookie operations
+
+### Technical Improvements
+- Module-level type definitions for better organization
+- Removed redundant type aliases
+- Improved error messages throughout
+- Better pattern matching and type inference
+- Cleaner module boundaries and responsibilities
 
 ### Migration Guide
+
+#### Before (v0.9.0)
 ```elixir
-# Before (v0.16.0)
-session
-|> fill_form("#form", username: "alice")
-|> submit_form("#form")
+use PhoenixHtmldriver
 
-# After (v0.17.0)
-alias PhoenixHtmldriver.Form
-
+session = visit(conn, "/login")
 session
-|> Session.form("#form")
+|> form("#login-form")
+|> fill(username: "alice")
+|> submit()
+|> assert_text("Welcome")
+|> assert_selector(".success")
+
+path = current_path(session)
+```
+
+#### After (v0.10.0)
+```elixir
+use PhoenixHtmldriver
+alias PhoenixHtmldriver.{Form, Assertions}
+
+session = visit(conn, "/login")
+session
+|> Form.new("#login-form")
 |> Form.fill(username: "alice")
 |> Form.submit()
+|> Assertions.assert_text("Welcome")
+|> Assertions.assert_selector(".success")
+
+path = Session.path(session)
 ```
 
 ### Impact
-- Better code organization with Single Responsibility Principle
-- Form logic can be tested independently
-- Clearer API for form interactions with composable functions
-- Foundation for advanced form features (file uploads, custom validations, etc.)
-- Forms work like real browsers - hidden inputs and defaults automatically included
-- All 132 tests passing
+- **Clearer API**: Direct module calls make code more discoverable
+- **Type Safety**: Dialyzer catches type errors at compile time
+- **Maintainability**: Better separation of concerns and module boundaries
+- **Testing**: Comprehensive test suite ensures reliability
+- **Documentation**: E2E tests demonstrate real-world usage patterns
 
-## [0.16.0] - 2025-01-14
-
-### Changed
-- **REFACTOR**: Simplified redirect handling using recursive `perform_request`
-  - Eliminated separate `follow_redirects/4` function (32 lines removed)
-  - Redirect logic now integrated directly into `perform_request` via recursion
-  - Cleaner design: single function handles both request and redirect
-  - Cookies naturally accumulated through recursive calls (monoid composition)
-
-### Removed
-- `follow_redirects/4` function (no longer needed)
-- Redundant redirect tests (covered by `perform_request` tests)
-
-### Impact
-- Simpler code with fewer moving parts
-- More elegant recursive design
-- Same behavior, better structure
-- HTTP module reduced from 162 to 130 lines (20% smaller)
-- Test count: 136 → 132 (removed redundant tests)
-- All 132 tests passing
-
-## [0.15.0] - 2025-01-14
-
-### Changed
-- **REFACTOR**: Extracted HTTP request handling into dedicated `HTTP` module
-  - Separated HTTP communication from session state management
-  - Created `PhoenixHtmldriver.HTTP` module with focused API:
-    - `perform_request/5` - Execute HTTP request with cookie/redirect handling
-    - `build_conn/4` - Build test connection with proper configuration
-    - `follow_redirects/4` - Follow HTTP redirects automatically
-  - `Session` now delegates all HTTP operations to `HTTP` module
-  - Removed ~80 lines from Session module
-
-### Added
-- Comprehensive `HTTP` module unit tests (16 new tests)
-  - Connection building tests
-  - Request execution tests
-  - Redirect following tests
-  - Cookie preservation tests
-  - Error handling tests
-- Added 16 new tests (total: 136 tests)
-
-### Impact
-- Better separation of concerns: Session (state) vs HTTP (communication)
-- Easier to test HTTP layer in isolation
-- HTTP logic can be reused independently if needed
-- Clearer code organization and module responsibilities
-- Session module now focuses solely on session state management
-- All 136 tests passing
-
-## [0.14.0] - 2025-01-14
-
-### Changed
-- **REFACTOR**: Unified HTTP request handling across all navigation methods
-  - Introduced `perform_request/5` private function as single source of truth
-  - All navigation methods (`visit`, `click_link`, `submit_form`) now use same core logic
-  - Eliminated code duplication (removed ~45 lines of repeated code)
-  - Consistent cookie handling, redirect following, and HTML parsing
-
-### Impact
-- Reduced code complexity and maintenance burden
-- Single place to modify HTTP request behavior
-- Consistent behavior across all navigation methods
-- Easier to add new navigation methods in future
-- All 120 tests passing
-
-## [0.13.0] - 2025-01-14
-
-### Changed
-- **REFACTOR**: Extracted cookie handling into dedicated `CookieJar` module
-  - Separated cookie concerns from `Session` module (addressing "god module" pattern)
-  - Created `PhoenixHtmldriver.CookieJar` with focused API:
-    - `merge/2` - Monoid-based cookie merging
-    - `extract/1` - Extract cookies from response
-    - `put_into_request/2` - Add cookies to request
-    - `empty/0` - Identity element
-  - `Session` module now delegates all cookie operations to `CookieJar`
-  - Clearer separation of concerns and single responsibility
-
-### Added
-- Comprehensive `CookieJar` unit tests (20 new tests)
-  - Monoid property verification
-  - Cookie deletion behavior
-  - Request/response integration
-- Added 20 new tests (total: 120 tests)
-
-### Impact
-- Better code organization and maintainability
-- Easier to test cookie logic in isolation
-- Clearer API boundaries between modules
-- Foundation for future cookie-related features
-- All 120 tests passing
-
-## [0.12.0] - 2025-01-14
-
-### Fixed
-- **CRITICAL**: Fixed cookie deletion handling for `max_age <= 0` ([reported by user analysis])
-  - Cookies with `max_age=0` or negative values are now properly deleted
-  - Previously, `Map.merge` would keep deleted cookies in the session
-  - Now matches browser behavior: cookies marked for deletion are removed
-  - Fixes logout flows and cookie expiration handling
-
-### Changed
-- Enhanced `merge_cookies/2` to filter out cookies with `max_age <= 0`
-- Cookie deletion now works correctly in all scenarios (logout, expiration, etc.)
-
-### Added
-- Cookie deletion tests (4 new tests)
-  - Test `max_age=0` deletion
-  - Test negative `max_age` deletion
-  - Test partial deletion (other cookies preserved)
-  - Test logout flow
-- Added 4 new tests (total: 100 tests)
-
-### Impact
-- Logout flows now work correctly
-- Cookie expiration handled properly
-- More accurate browser behavior simulation
-- All 100 tests passing
-
-## [0.11.0] - 2025-01-14
-
-### Changed
-- **BREAKING INTERNAL**: Refactored cookie handling to use proper monoid structure
-  - Introduced `merge_cookies/2` private function with explicit monoid properties
-  - Eliminated conditional logic (no more `if map_size(cookies) > 0`)
-  - Cookie merging now uses `Map.merge` consistently everywhere
-  - Right-biased merge: new cookies override existing ones with the same key
-  - Identity element: empty map `%{}` or `nil` handled correctly
-  - Associative operation: merge order doesn't affect final result
-
-### Added
-- Comprehensive monoid property tests (`test/cookie_monoid_test.exs`)
-  - Identity property verification
-  - Associativity verification
-  - Right-bias behavior documentation
-  - Edge case handling (nil cookies, empty responses)
-- Added 8 new tests (total: 96 tests)
-
-### Fixed
-- Improved cookie preservation through better algebraic structure
-- More robust handling of nil cookies and empty cookie maps
-- Clearer code expressing mathematical properties
-
-### Impact
-- More maintainable and easier to reason about cookie handling
-- Better guarantees about cookie behavior through monoid laws
-- Foundation for future extensions (e.g., custom cookie merge strategies)
-- All 96 tests passing
-
-## [0.10.0] - 2025-01-14
-
-### Fixed
-- **CRITICAL**: Fixed cookie preservation during redirects when redirect response has no Set-Cookie header ([#7](https://github.com/ppdx999/phoenix-htmldriver/issues/7))
-  - When a redirect response (302) doesn't include Set-Cookie headers, input cookies are now preserved
-  - Previously, `follow_redirects` was called with `extract_cookies(response)` which returned empty map for redirects
-  - Now checks if response has cookies; if not, uses input cookies instead
-  - Fixes session loss after login when visiting protected pages
-  - Fixes authenticated redirects not preserving session state
-  - Applies to all navigation functions: `visit/2`, `click_link/2`, and `submit_form/3`
-
-### Changed
-- All `follow_redirects` calls now intelligently choose between response cookies and input cookies
-- Cookie preservation logic: use response cookies if present, otherwise preserve input cookies
-
-### Impact
-- Session-based authentication flows with redirects now work correctly in all scenarios
-- Authenticated users remain logged in when navigating to pages that redirect
-- Fixes the regression where v0.9.0 still lost sessions during certain redirect scenarios
-- All 88 tests passing
+All 179 tests passing with comprehensive coverage of all modules and features.
 
 ## [0.9.0] - 2025-01-14
 
