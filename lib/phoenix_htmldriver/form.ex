@@ -31,7 +31,7 @@ defmodule PhoenixHtmldriver.Form do
   Submit, button, file, reset, and image inputs are ignored during parsing.
   """
 
-  alias PhoenixHtmldriver.HTTP
+  alias PhoenixHtmldriver.{HTTP, StringMap}
 
   defstruct [:conn, :node, :values, :endpoint, :cookies, :path]
 
@@ -152,14 +152,8 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec fill(t(), map() | keyword()) :: t()
   def fill(%__MODULE__{values: current_values} = form, fields) do
-    # Convert to map and normalize all keys to strings
-    normalized_fields =
-      fields
-      |> Enum.into(%{})
-      |> Map.new(fn {key, value} -> {normalize_field_name(key), value} end)
-
     # Simple merge - new values override current values
-    updated_values = Map.merge(current_values, normalized_fields)
+    updated_values = StringMap.merge(current_values, fields)
 
     %{form | values: updated_values}
   end
@@ -193,7 +187,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec uncheck(t(), String.t() | atom()) :: t()
   def uncheck(%__MODULE__{values: current_values} = form, field_name) do
-    updated_values = Map.delete(current_values, normalize_field_name(field_name))
+    updated_values = StringMap.delete(current_values, field_name)
     %{form | values: updated_values}
   end
 
@@ -252,8 +246,8 @@ defmodule PhoenixHtmldriver.Form do
   def submit(%__MODULE__{conn: conn, node: node, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
-    action = get_attribute(node, "action") || path
-    method = (get_attribute(node, "method") || "get") |> String.downcase() |> String.to_atom()
+    action = attr(node, "action") || path
+    method = (attr(node, "method") || "get") |> String.downcase() |> String.to_atom()
 
     # Validate method - HTML forms only support get and post
     unless method in [:get, :post] do
@@ -278,16 +272,12 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   # Helper to get attribute value
-  defp get_attribute(node, name) do
+  defp attr(node, name) do
     case Floki.attribute(node, name) do
       [value | _] -> value
       [] -> nil
     end
   end
-
-  # Normalize field name to string (atom -> string)
-  defp normalize_field_name(field_name) when is_atom(field_name), do: Atom.to_string(field_name)
-  defp normalize_field_name(field_name) when is_binary(field_name), do: field_name
 
   # Parse form and extract default values from all fields
   defp parse_form_values(form) do
@@ -303,7 +293,7 @@ defmodule PhoenixHtmldriver.Form do
 
   # Extract name and value from a single form field
   defp extract_field_value(element) do
-    case get_attribute(element, "name") do
+    case attr(element, "name") do
       nil -> nil
       "" -> nil
       name -> {name, extract_value(element)}
@@ -312,19 +302,19 @@ defmodule PhoenixHtmldriver.Form do
 
   # Extract value based on element type
   defp extract_value({"input", _attrs, _children} = input) do
-    input_type = get_attribute(input, "type") || "text"
+    input_type = attr(input, "type") || "text"
 
     case String.downcase(input_type) do
       "checkbox" ->
-        if get_attribute(input, "checked") do
-          get_attribute(input, "value") || "on"
+        if attr(input, "checked") do
+          attr(input, "value") || "on"
         else
           nil
         end
 
       "radio" ->
-        if get_attribute(input, "checked") do
-          get_attribute(input, "value")
+        if attr(input, "checked") do
+          attr(input, "value")
         else
           nil
         end
@@ -334,7 +324,7 @@ defmodule PhoenixHtmldriver.Form do
 
       _ ->
         # text, password, email, hidden, number, etc.
-        get_attribute(input, "value") || ""
+        attr(input, "value") || ""
     end
   end
 
@@ -345,12 +335,12 @@ defmodule PhoenixHtmldriver.Form do
   defp extract_value({"select", _attrs, _children} = select) do
     case Floki.find(select, "option[selected]") do
       [option | _] ->
-        get_attribute(option, "value") || Floki.text(option)
+        attr(option, "value") || Floki.text(option)
 
       [] ->
         case Floki.find(select, "option") do
           [first_option | _] ->
-            get_attribute(first_option, "value") || Floki.text(first_option)
+            attr(first_option, "value") || Floki.text(first_option)
 
           [] ->
             ""
