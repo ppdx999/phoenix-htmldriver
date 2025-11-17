@@ -157,6 +157,23 @@ defmodule PhoenixHtmldriver.Form do
     action = get_attribute(node, "action") || path
     method = (get_attribute(node, "method") || "get") |> String.downcase() |> String.to_atom()
 
+    # Validate method - HTML forms only support get and post
+    unless method in [:get, :post] do
+      raise ArgumentError, """
+      Invalid form method: '#{method}'.
+
+      HTML forms only support 'get' or 'post' methods.
+
+      For PUT/PATCH/DELETE requests in Phoenix, use method override:
+        <form method="post">
+          <input type="hidden" name="_method" value="put" />
+        </form>
+
+      Then PhoenixHtmldriver will submit as POST with _method parameter,
+      and Phoenix's Plug.MethodOverride will handle the conversion.
+      """
+    end
+
     # Use current form values (already includes all fields including CSRF tokens)
     form_values = current_values
 
@@ -168,13 +185,9 @@ defmodule PhoenixHtmldriver.Form do
           path_with_query = action <> "?" <> URI.encode_query(form_values)
           HTTP.perform_request(:get, path_with_query, endpoint, cookies)
 
-        method when method in [:post, :put, :patch] ->
-          # POST/PUT/PATCH forms send params in body
-          HTTP.perform_request(method, action, endpoint, cookies, form_values)
-
-        :delete ->
-          # DELETE typically doesn't have a body
-          HTTP.perform_request(:delete, action, endpoint, cookies)
+        :post ->
+          # POST forms send params in body
+          HTTP.perform_request(:post, action, endpoint, cookies, form_values)
       end
 
     # Return a new Session struct
