@@ -17,7 +17,7 @@ defmodule PhoenixHtmldriver.Link do
       |> Link.click()
   """
 
-  alias PhoenixHtmldriver.{HTTP, FlokiHelpers}
+  alias PhoenixHtmldriver.HTTP
 
   defstruct [:conn, :node, :endpoint, :cookies, :path]
 
@@ -131,6 +131,9 @@ defmodule PhoenixHtmldriver.Link do
 
   # Helper to get attribute value
   defp get_attribute(node, name) do
-    FlokiHelpers.attr(node, name)
+    case Floki.attribute(node, name) do
+      [value | _] -> value
+      [] -> nil
+    end
   end
 end
