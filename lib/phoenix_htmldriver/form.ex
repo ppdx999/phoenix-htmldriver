@@ -66,30 +66,98 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   @doc """
-  Fills the form with the given values.
+  Fills a single text input field.
 
-  Updates the form's current values, mimicking how a browser updates the DOM
-  when a user fills in form fields.
+  Sets the value of a text-based input field (text, password, email, number, etc.)
+  in the form. Mimics a user typing into a single field.
 
   ## Examples
 
       form
-      |> fill(%{email: "user@example.com", password: "secret"})
-      |> submit()
-
-      # Can also use keyword lists
-      form
-      |> fill(email: "test@example.com", password: "secret")
+      |> fill("email", "user@example.com")
+      |> fill("password", "secret")
       |> submit()
   """
-  @spec fill(t(), keyword() | map()) :: t()
-  def fill(%__MODULE__{values: current_values} = form, new_values) do
-    # Convert keyword list to map and normalize keys
-    normalized_new_values = new_values |> Enum.into(%{}) |> normalize_keys()
+  @spec fill(t(), String.t() | atom(), String.t()) :: t()
+  def fill(%__MODULE__{values: current_values} = form, field_name, value) do
+    # Normalize field name to string
+    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
 
-    # Merge with current values (mimicking DOM state update)
-    updated_values = Map.merge(current_values, normalized_new_values)
+    # Update the single field value
+    updated_values = Map.put(current_values, normalized_field_name, value)
 
+    %{form | values: updated_values}
+  end
+
+  @doc """
+  Selects an option from a select dropdown.
+
+  Sets the value of a select element by choosing an option.
+
+  ## Examples
+
+      form
+      |> select("country", "Japan")
+      |> submit()
+  """
+  @spec select(t(), String.t() | atom(), String.t()) :: t()
+  def select(%__MODULE__{values: current_values} = form, field_name, option_value) do
+    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
+    updated_values = Map.put(current_values, normalized_field_name, option_value)
+    %{form | values: updated_values}
+  end
+
+  @doc """
+  Checks a checkbox.
+
+  Sets a checkbox to checked state (value "on").
+
+  ## Examples
+
+      form
+      |> check("terms")
+      |> submit()
+  """
+  @spec check(t(), String.t() | atom()) :: t()
+  def check(%__MODULE__{values: current_values} = form, field_name) do
+    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
+    updated_values = Map.put(current_values, normalized_field_name, "on")
+    %{form | values: updated_values}
+  end
+
+  @doc """
+  Unchecks a checkbox.
+
+  Removes a checkbox value from the form (mimics unchecking).
+
+  ## Examples
+
+      form
+      |> uncheck("newsletter")
+      |> submit()
+  """
+  @spec uncheck(t(), String.t() | atom()) :: t()
+  def uncheck(%__MODULE__{values: current_values} = form, field_name) do
+    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
+    updated_values = Map.delete(current_values, normalized_field_name)
+    %{form | values: updated_values}
+  end
+
+  @doc """
+  Chooses a radio button.
+
+  Sets the value of a radio button group.
+
+  ## Examples
+
+      form
+      |> choose("gender", "female")
+      |> submit()
+  """
+  @spec choose(t(), String.t() | atom(), String.t()) :: t()
+  def choose(%__MODULE__{values: current_values} = form, field_name, option_value) do
+    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
+    updated_values = Map.put(current_values, normalized_field_name, option_value)
     %{form | values: updated_values}
   end
 
@@ -166,17 +234,6 @@ defmodule PhoenixHtmldriver.Form do
       [] -> nil
     end
   end
-
-  # Normalize map keys to strings, recursively handling nested maps
-  defp normalize_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} ->
-      normalized_key = if is_atom(key), do: Atom.to_string(key), else: key
-      normalized_value = if is_map(value), do: normalize_keys(value), else: value
-      {normalized_key, normalized_value}
-    end)
-  end
-
-  defp normalize_keys(value), do: value
 
   # Parse form and extract default values from all fields
   defp parse_form_values(form) do
