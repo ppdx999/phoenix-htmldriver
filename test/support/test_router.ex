@@ -385,6 +385,54 @@ defmodule PhoenixHtmldriver.TestRouter do
     |> send_resp(200, "<html><body>Logged out</body></html>")
   end
 
+  # Session test endpoints
+  get "/redirect-to-home" do
+    conn
+    |> put_resp_header("location", "/home")
+    |> send_resp(302, "Redirecting...")
+  end
+
+  get "/infinite-redirect" do
+    conn
+    |> put_resp_header("location", "/infinite-redirect")
+    |> send_resp(302, "Redirecting...")
+  end
+
+  get "/redirect-with-cookie" do
+    conn
+    |> put_resp_cookie("redirect_cookie", "value", max_age: 3600)
+    |> put_resp_header("location", "/home")
+    |> send_resp(302, "Redirecting with cookie...")
+  end
+
+  get "/check-cookie" do
+    cookie_value = conn.req_cookies["test_cookie"] || "no cookie"
+
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <p>Cookie value: #{cookie_value}</p>
+      </body>
+    </html>
+    """)
+  end
+
+  get "/set-another-cookie" do
+    conn
+    |> put_resp_cookie("another_cookie", "another_value", max_age: 3600)
+    |> send_resp(200, "<html><body>Another cookie set</body></html>")
+  end
+
+  get "/" do
+    send_resp(conn, 200, """
+    <html>
+      <body>
+        <h1>Welcome</h1>
+      </body>
+    </html>
+    """)
+  end
+
   match _ do
     send_resp(conn, 404, "Not found")
   end
