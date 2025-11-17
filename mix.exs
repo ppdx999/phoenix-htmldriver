@@ -12,7 +12,11 @@ defmodule PhoenixHtmldriver.MixProject do
       description: "A lightweight Phoenix library for testing pure HTML with human-like interactions",
       package: package(),
       docs: docs(),
-      source_url: "https://github.com/ppdx999/phoenix-htmldriver"
+      source_url: "https://github.com/ppdx999/phoenix-htmldriver",
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:ex_unit]
+      ]
     ]
   end
 
@@ -49,7 +53,8 @@ defmodule PhoenixHtmldriver.MixProject do
       {:floki, "~> 0.36.0"},
       {:phoenix, "~> 1.7"},
       {:plug, "~> 1.14"},
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false}
     ]
   end
 end

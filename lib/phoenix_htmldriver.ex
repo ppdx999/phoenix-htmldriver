@@ -104,9 +104,10 @@ defmodule PhoenixHtmldriver do
   ## Examples
 
       session = visit(conn, "/home")
+      session = visit(session, "/profile")
   """
-  @spec visit(Plug.Conn.t(), String.t()) :: Session.t()
-  defdelegate visit(conn, path), to: Session
+  @spec visit(Session.t() | Plug.Conn.t(), String.t()) :: Session.t()
+  defdelegate visit(conn_or_session, path), to: Session, as: :visit
 
   @doc """
   Gets a form from the current session.

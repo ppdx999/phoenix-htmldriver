@@ -131,15 +131,14 @@ defmodule PhoenixHtmldriver.Session do
           end
 
         # Recursively follow redirect with GET request
-        updated_session = %__MODULE__{
+        request(%__MODULE__{
           conn: conn,
           endpoint: endpoint,
           cookies: merged_cookies,
           document: nil,
           response: nil,
           path: nil
-        }
-        request(updated_session, :get, location, nil, remaining_redirects - 1)
+        }, :get, location, nil, remaining_redirects - 1)
 
       _ ->
         # Not a redirect, parse and return
