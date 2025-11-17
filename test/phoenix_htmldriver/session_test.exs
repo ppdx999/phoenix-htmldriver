@@ -116,7 +116,7 @@ defmodule PhoenixHtmldriver.SessionTest do
       new_session =
         session
         |> Form.new("#test-form")
-        |> Form.submit(username: "alice")
+        |> Form.fill(username: "alice") |> Form.submit()
 
       assert new_session.response.request_path == "/login"
       assert Session.current_html(new_session) =~ "Welcome, alice!"
@@ -145,7 +145,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#search-form") |> Form.submit(q: "elixir")
+      new_session = session |> Form.new("#search-form") |> Form.fill(q: "elixir") |> Form.submit()
 
       assert new_session.response.request_path =~ "/search"
       assert Session.current_html(new_session) =~ "Search results for: elixir"
@@ -174,7 +174,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#update-form") |> Form.submit(name: "test")
+      new_session = session |> Form.new("#update-form") |> Form.fill(name: "test") |> Form.submit()
 
       assert new_session.response.request_path == "/update"
       assert Session.current_html(new_session) =~ "Updated: test"
@@ -203,7 +203,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#patch-form") |> Form.submit(value: "updated")
+      new_session = session |> Form.new("#patch-form") |> Form.fill(value: "updated") |> Form.submit()
 
       assert new_session.response.request_path == "/patch"
       assert Session.current_html(new_session) =~ "Patched: updated"
@@ -261,7 +261,7 @@ defmodule PhoenixHtmldriver.SessionTest do
       }
 
       # Should default to "/" for action
-      new_session = session |> Form.new("#test-form") |> Form.submit(username: "test")
+      new_session = session |> Form.new("#test-form") |> Form.fill(username: "test") |> Form.submit()
       assert new_session.response.request_path == "/"
     end
 
@@ -288,7 +288,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#test-form") |> Form.submit(q: "phoenix")
+      new_session = session |> Form.new("#test-form") |> Form.fill(q: "phoenix") |> Form.submit()
       assert Session.current_html(new_session) =~ "Search results for: phoenix"
     end
   end
@@ -441,7 +441,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         Session.visit(conn, "/login-form")
         |> Form.new("#login-form")
         |> Form.fill(username: "alice")
-        |> Form.submit(username: "bob")
+        |> Form.fill(username: "bob") |> Form.submit()
 
       # bob should override alice
       assert Session.current_html(session) =~ "Logged in as: bob"
@@ -506,7 +506,7 @@ defmodule PhoenixHtmldriver.SessionTest do
       session = Session.visit(conn, "/login-form")
 
       # Submit form - session from page load should be preserved
-      new_session = session |> Form.new("#login-form") |> Form.submit(username: "alice")
+      new_session = session |> Form.new("#login-form") |> Form.fill(username: "alice") |> Form.submit()
 
       # Both the form_loaded session value and new username should be present
       assert Session.current_html(new_session) =~ "Logged in as: alice"
@@ -608,7 +608,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         cookies: %{},
       }
 
-      new_session = session |> Form.new("#login-form") |> Form.submit(username: "alice")
+      new_session = session |> Form.new("#login-form") |> Form.fill(username: "alice") |> Form.submit()
 
       # Should follow redirect to dashboard
       assert Session.current_path(new_session) == "/dashboard"
@@ -674,7 +674,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         cookies: %{},
       }
 
-      new_session = session |> Form.new("#login-form") |> Form.submit(username: "bob")
+      new_session = session |> Form.new("#login-form") |> Form.fill(username: "bob") |> Form.submit()
 
       # Session should be preserved through redirect
       assert Session.current_html(new_session) =~ "Welcome, bob!"
@@ -692,7 +692,7 @@ defmodule PhoenixHtmldriver.SessionTest do
     test "automatically extracts and includes CSRF token from hidden input", %{conn: conn} do
       session = Session.visit(conn, "/form-with-csrf")
 
-      new_session = session |> Form.new("#csrf-form") |> Form.submit(message: "Hello")
+      new_session = session |> Form.new("#csrf-form") |> Form.fill(message: "Hello") |> Form.submit()
 
       assert Session.current_html(new_session) =~ "CSRF valid: Hello"
     end
@@ -701,7 +701,7 @@ defmodule PhoenixHtmldriver.SessionTest do
       session = Session.visit(conn, "/form-with-csrf")
 
       # User explicitly provides wrong token
-      new_session = session |> Form.new("#csrf-form") |> Form.submit(_csrf_token: "wrong-token", message: "Hello")
+      new_session = session |> Form.new("#csrf-form") |> Form.fill(_csrf_token: "wrong-token", message: "Hello") |> Form.submit()
 
       # Should use user-provided token (wrong), so validation fails
       assert new_session.response.status == 403
@@ -732,7 +732,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#simple-form") |> Form.submit(q: "test")
+      new_session = session |> Form.new("#simple-form") |> Form.fill(q: "test") |> Form.submit()
       assert Session.current_html(new_session) =~ "Search results for: test"
     end
 
@@ -763,7 +763,7 @@ defmodule PhoenixHtmldriver.SessionTest do
         path: "/"
       }
 
-      new_session = session |> Form.new("#get-form") |> Form.submit(q: "search")
+      new_session = session |> Form.new("#get-form") |> Form.fill(q: "search") |> Form.submit()
       assert Session.current_html(new_session) =~ "Search results for: search"
     end
   end

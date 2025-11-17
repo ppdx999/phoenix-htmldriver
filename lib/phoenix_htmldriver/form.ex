@@ -96,42 +96,38 @@ defmodule PhoenixHtmldriver.Form do
   @doc """
   Submits the form and returns a new Session.
 
-  Optionally accepts additional values to merge with the form's current values
-  before submission. Additional values take priority over current values.
+  Submits the form with its current values. Use `fill/2` to set values before submitting.
 
   All form fields (including hidden inputs like CSRF tokens) are automatically
   included from the form's current values.
 
   ## Examples
 
-      # Submit with current values (includes CSRF token from hidden input)
+      # Submit with filled values (includes CSRF token from hidden input)
       form
-      |> fill(%{email: "user@example.com"})
+      |> fill(%{email: "user@example.com", password: "secret"})
       |> submit()
-
-      # Submit with additional values (override current values)
-      form
-      |> fill(%{email: "user@example.com"})
-      |> submit(%{remember_me: "on"})
 
       # Submit without filling (uses parsed DOM values including hidden fields)
       form
-      |> submit(%{email: "user@example.com", password: "secret"})
+      |> submit()
+
+      # Multiple fills before submit
+      form
+      |> fill(%{email: "user@example.com"})
+      |> fill(%{password: "secret"})
+      |> submit()
   """
-  @spec submit(t(), keyword() | map()) :: PhoenixHtmldriver.Session.t()
-  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form, additional_values \\ []) do
+  @spec submit(t()) :: PhoenixHtmldriver.Session.t()
+  def submit(%__MODULE__{node: node, selector: _selector, values: current_values, endpoint: endpoint, cookies: cookies, path: path} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
     action = get_attribute(node, "action") || path
     method = get_attribute(node, "method") || "get"
     method_atom = String.downcase(method) |> String.to_atom()
 
-    # Normalize additional values
-    normalized_additional = additional_values |> Enum.into(%{}) |> normalize_keys()
-
-    # Merge current values with additional values (additional takes priority)
-    # CSRF tokens from hidden inputs are already in current_values
-    form_values = Map.merge(current_values, normalized_additional)
+    # Use current form values (already includes all fields including CSRF tokens)
+    form_values = current_values
 
     # Submit the form - handle GET specially (query params in URL)
     {final_response, final_cookies, new_document} =

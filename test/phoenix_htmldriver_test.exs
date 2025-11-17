@@ -137,7 +137,7 @@ defmodule PhoenixHtmldriverTest do
       session =
         session
         |> form("#login-form")
-        |> Form.submit(username: "alice")
+        |> Form.fill(username: "alice") |> Form.submit()
 
       assert_text(session, "Welcome, alice!")
     end
