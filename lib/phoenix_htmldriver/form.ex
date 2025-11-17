@@ -284,26 +284,10 @@ defmodule PhoenixHtmldriver.Form do
     input_type = attr(input, "type") || "text"
 
     case String.downcase(input_type) do
-      "checkbox" ->
-        if attr(input, "checked") do
-          attr(input, "value") || "on"
-        else
-          nil
-        end
-
-      "radio" ->
-        if attr(input, "checked") do
-          attr(input, "value")
-        else
-          nil
-        end
-
-      type when type in ["file", "submit", "button", "reset", "image"] ->
-        nil
-
-      _ ->
-        # text, password, email, hidden, number, etc.
-        attr(input, "value") || ""
+      "checkbox" -> attr(input, "checked") && (attr(input, "value") || "on")
+      "radio" -> attr(input, "checked") && attr(input, "value")
+      type when type in ["file", "submit", "button", "reset", "image"] -> nil
+      _ -> attr(input, "value") || ""
     end
   end
 
