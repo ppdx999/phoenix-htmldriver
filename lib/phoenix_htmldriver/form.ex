@@ -64,89 +64,64 @@ defmodule PhoenixHtmldriver.Form do
   end
 
   @doc """
-  Fills a single text input field.
+  Fills form fields with the given values.
 
-  Sets the value of a text-based input field (text, password, email, number, etc.)
-  in the form. Mimics a user typing into a single field.
+  Merges the provided field values with the form's current values.
+  Accepts both maps and keyword lists. Field names can be atoms or strings.
 
   ## Examples
 
+      # Using keyword list
       form
-      |> fill("email", "user@example.com")
-      |> fill("password", "secret")
+      |> fill(email: "user@example.com", password: "secret")
       |> submit()
+
+      # Using map
+      form
+      |> fill(%{"country" => "Japan", "terms" => "on"})
+      |> submit()
+
+      # Multiple fills (values accumulate)
+      form
+      |> fill(email: "user@example.com")
+      |> fill(password: "secret")
+      |> submit()
+
+  ## Field values
+
+  - Text inputs: any string value
+  - Select: option value as string
+  - Radio: option value as string
+  - Checkbox (checked): "on" or the input's value attribute
+  - Checkbox (unchecked): use `uncheck/2` to remove the field
   """
-  @spec fill(t(), String.t() | atom(), String.t()) :: t()
-  def fill(%__MODULE__{values: current_values} = form, field_name, value) do
-    updated_values = Map.put(current_values, normalize_field_name(field_name), value)
+  @spec fill(t(), map() | keyword()) :: t()
+  def fill(%__MODULE__{values: current_values} = form, fields) do
+    # Convert to map and normalize all keys to strings
+    normalized_fields =
+      fields
+      |> Enum.into(%{})
+      |> Map.new(fn {key, value} -> {normalize_field_name(key), value} end)
+
+    # Simple merge - new values override current values
+    updated_values = Map.merge(current_values, normalized_fields)
+
     %{form | values: updated_values}
   end
 
   @doc """
-  Selects an option from a select dropdown.
-
-  Sets the value of a select element by choosing an option.
+  Unchecks a checkbox by removing its field from the form.
 
   ## Examples
 
       form
-      |> select("country", "Japan")
-      |> submit()
-  """
-  @spec select(t(), String.t() | atom(), String.t()) :: t()
-  def select(%__MODULE__{values: current_values} = form, field_name, option_value) do
-    updated_values = Map.put(current_values, normalize_field_name(field_name), option_value)
-    %{form | values: updated_values}
-  end
-
-  @doc """
-  Checks a checkbox.
-
-  Sets a checkbox to checked state (value "on").
-
-  ## Examples
-
-      form
-      |> check("terms")
-      |> submit()
-  """
-  @spec check(t(), String.t() | atom()) :: t()
-  def check(%__MODULE__{values: current_values} = form, field_name) do
-    updated_values = Map.put(current_values, normalize_field_name(field_name), "on")
-    %{form | values: updated_values}
-  end
-
-  @doc """
-  Unchecks a checkbox.
-
-  Removes a checkbox value from the form (mimics unchecking).
-
-  ## Examples
-
-      form
-      |> uncheck("newsletter")
+      |> fill(terms: "on")
+      |> uncheck("terms")
       |> submit()
   """
   @spec uncheck(t(), String.t() | atom()) :: t()
   def uncheck(%__MODULE__{values: current_values} = form, field_name) do
     updated_values = Map.delete(current_values, normalize_field_name(field_name))
-    %{form | values: updated_values}
-  end
-
-  @doc """
-  Chooses a radio button.
-
-  Sets the value of a radio button group.
-
-  ## Examples
-
-      form
-      |> choose("gender", "female")
-      |> submit()
-  """
-  @spec choose(t(), String.t() | atom(), String.t()) :: t()
-  def choose(%__MODULE__{values: current_values} = form, field_name, option_value) do
-    updated_values = Map.put(current_values, normalize_field_name(field_name), option_value)
     %{form | values: updated_values}
   end
 
