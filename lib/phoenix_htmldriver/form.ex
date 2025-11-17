@@ -283,21 +283,24 @@ defmodule PhoenixHtmldriver.Form do
   defp parse_form_values(form) do
     form
     |> Floki.find("input, textarea, select")
-    |> Enum.reduce(%{}, fn element, acc ->
-      case extract_field_value(element) do
-        {name, value} when is_binary(name) and not is_nil(value) -> Map.put(acc, name, value)
-        _ -> acc
-      end
-    end)
+    |> Enum.filter(&has_valid_name?/1)
+    |> Enum.map(&to_name_value_pair/1)
+    |> Enum.reject(fn {_name, value} -> is_nil(value) end)
+    |> Enum.into(%{})
   end
 
-  # Extract name and value from a single form field
-  defp extract_field_value(element) do
+  # Checks if element has a valid name attribute
+  defp has_valid_name?(element) do
     case attr(element, "name") do
-      nil -> nil
-      "" -> nil
-      name -> {name, extract_value(element)}
+      nil -> false
+      "" -> false
+      _ -> true
     end
+  end
+
+  # Transforms element to {name, value} pair
+  defp to_name_value_pair(element) do
+    {attr(element, "name"), extract_value(element)}
   end
 
   # Extract value based on element type
