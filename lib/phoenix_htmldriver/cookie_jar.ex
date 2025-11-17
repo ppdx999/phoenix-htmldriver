@@ -8,6 +8,8 @@ defmodule PhoenixHtmldriver.CookieJar do
   - Browser-like behavior for cookie handling
   """
 
+  defstruct [:cookies]
+
   @type cookie :: %{
           value: String.t(),
           max_age: integer() | nil,
@@ -18,16 +20,18 @@ defmodule PhoenixHtmldriver.CookieJar do
           same_site: atom() | nil
         }
 
-  @type t :: %{optional(String.t()) => cookie()}
+  @type t :: %__MODULE__{
+          cookies: %{optional(String.t()) => cookie()}
+        }
 
   @doc """
   Extracts cookies from a Plug.Conn response.
 
-  Returns a map of cookie name to cookie struct.
+  Returns a CookieJar containing cookies from the response.
   """
   @spec extract(Plug.Conn.t()) :: t()
   def extract(response) do
-    response.resp_cookies
+    %__MODULE__{cookies: response.resp_cookies}
   end
 
   @doc """
@@ -35,50 +39,44 @@ defmodule PhoenixHtmldriver.CookieJar do
 
   ## Monoid Properties
 
-  - **Identity**: `merge(%{}, a) = merge(a, %{}) = a`
+  - **Identity**: `merge(empty(), a) = merge(a, empty()) = a`
   - **Associativity**: `merge(merge(a, b), c) = merge(a, merge(b, c))`
-  - **Right-biased**: `merge(%{k: v1}, %{k: v2}) = %{k: v2}`
+  - **Right-biased**: New cookies override existing ones with the same name
   - **Deletion**: Cookies with `max_age <= 0` are removed
 
   ## Examples
 
-      iex> merge(%{"session" => %{value: "old"}}, %{"session" => %{value: "new"}})
-      %{"session" => %{value: "new"}}
+      iex> jar1 = %CookieJar{cookies: %{"session" => %{value: "old"}}}
+      iex> jar2 = %CookieJar{cookies: %{"session" => %{value: "new"}}}
+      iex> merge(jar1, jar2)
+      %CookieJar{cookies: %{"session" => %{value: "new"}}}
 
-      iex> merge(%{"session" => %{value: "keep"}}, %{})
-      %{"session" => %{value: "keep"}}
-
-      iex> merge(%{"session" => %{value: "old"}}, %{"session" => %{value: "", max_age: 0}})
-      %{}
+      iex> jar = %CookieJar{cookies: %{"session" => %{value: "keep"}}}
+      iex> merge(jar, empty())
+      %CookieJar{cookies: %{"session" => %{value: "keep"}}}
 
   """
-  @spec merge(t() | nil, t() | nil) :: t()
-  def merge(existing, new) when is_map(existing) and is_map(new) do
-    existing
-    |> Map.merge(new)
-    |> filter_deleted()
-  end
+  @spec merge(t(), t()) :: t()
+  def merge(%__MODULE__{cookies: existing}, %__MODULE__{cookies: new}) do
+    merged =
+      existing
+      |> Map.merge(new)
+      |> filter_deleted()
 
-  def merge(nil, new) when is_map(new) do
-    filter_deleted(new)
+    %__MODULE__{cookies: merged}
   end
-
-  def merge(existing, nil) when is_map(existing) do
-    existing
-  end
-
-  def merge(nil, nil), do: %{}
 
   @doc """
   Puts cookies into a request conn by setting the Cookie header.
 
   Returns the conn with Cookie header set, or unchanged conn if no cookies.
   """
-  @spec put_into_request(Plug.Conn.t(), t() | nil) :: Plug.Conn.t()
-  def put_into_request(conn, nil), do: conn
-  def put_into_request(conn, cookies) when map_size(cookies) == 0, do: conn
+  @spec put_into_request(Plug.Conn.t(), t()) :: Plug.Conn.t()
+  def put_into_request(conn, %__MODULE__{cookies: cookies}) when map_size(cookies) == 0 do
+    conn
+  end
 
-  def put_into_request(conn, cookies) do
+  def put_into_request(conn, %__MODULE__{cookies: cookies}) do
     cookie_header =
       cookies
       |> Enum.map(fn {name, cookie} -> "#{name}=#{cookie.value}" end)
@@ -91,7 +89,7 @@ defmodule PhoenixHtmldriver.CookieJar do
   Returns an empty cookie jar (monoid identity).
   """
   @spec empty() :: t()
-  def empty, do: %{}
+  def empty, do: %__MODULE__{cookies: %{}}
 
   # Private functions
 

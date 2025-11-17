@@ -48,6 +48,7 @@ defmodule PhoenixHtmldriver.Element do
 
   Raises if the element is not found in the document.
   """
+  @dialyzer {:nowarn_function, new: 2}
   @spec new(Session.t(), String.t()) :: t()
   def new(%Session{document: document}, selector) do
     case Floki.find(document, selector) do

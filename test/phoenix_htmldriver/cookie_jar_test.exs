@@ -3,40 +3,26 @@ defmodule PhoenixHtmldriver.CookieJarTest do
   alias PhoenixHtmldriver.CookieJar
 
   describe "empty/0" do
-    test "returns empty map" do
-      assert CookieJar.empty() == %{}
+    test "returns empty CookieJar" do
+      assert CookieJar.empty() == %CookieJar{cookies: %{}}
     end
   end
 
   describe "merge/2 - monoid properties" do
     test "identity: merge(empty, a) = a" do
-      cookies = %{"session" => %{value: "abc123"}}
+      cookies = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
       assert CookieJar.merge(CookieJar.empty(), cookies) == cookies
     end
 
     test "identity: merge(a, empty) = a" do
-      cookies = %{"session" => %{value: "abc123"}}
+      cookies = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
       assert CookieJar.merge(cookies, CookieJar.empty()) == cookies
     end
 
-    test "identity: merge(nil, a) = a" do
-      cookies = %{"session" => %{value: "abc123"}}
-      assert CookieJar.merge(nil, cookies) == cookies
-    end
-
-    test "identity: merge(a, nil) = a" do
-      cookies = %{"session" => %{value: "abc123"}}
-      assert CookieJar.merge(cookies, nil) == cookies
-    end
-
-    test "identity: merge(nil, nil) = empty" do
-      assert CookieJar.merge(nil, nil) == %{}
-    end
-
     test "associativity: merge(merge(a, b), c) = merge(a, merge(b, c))" do
-      a = %{"cookie1" => %{value: "a"}}
-      b = %{"cookie2" => %{value: "b"}}
-      c = %{"cookie3" => %{value: "c"}}
+      a = %CookieJar{cookies: %{"cookie1" => %{value: "a"}}}
+      b = %CookieJar{cookies: %{"cookie2" => %{value: "b"}}}
+      c = %CookieJar{cookies: %{"cookie3" => %{value: "c"}}}
 
       left = CookieJar.merge(CookieJar.merge(a, b), c)
       right = CookieJar.merge(a, CookieJar.merge(b, c))
@@ -45,86 +31,90 @@ defmodule PhoenixHtmldriver.CookieJarTest do
     end
 
     test "right-biased: newer cookie overrides older" do
-      old = %{"session" => %{value: "old"}}
-      new = %{"session" => %{value: "new"}}
+      old = %CookieJar{cookies: %{"session" => %{value: "old"}}}
+      new = %CookieJar{cookies: %{"session" => %{value: "new"}}}
 
       result = CookieJar.merge(old, new)
 
-      assert result == %{"session" => %{value: "new"}}
+      assert result == %CookieJar{cookies: %{"session" => %{value: "new"}}}
     end
 
     test "multiple cookies are preserved" do
-      existing = %{
-        "session" => %{value: "session_value"},
-        "prefs" => %{value: "dark_mode"}
+      existing = %CookieJar{
+        cookies: %{
+          "session" => %{value: "session_value"},
+          "prefs" => %{value: "dark_mode"}
+        }
       }
 
-      new = %{"csrf" => %{value: "token123"}}
+      new = %CookieJar{cookies: %{"csrf" => %{value: "token123"}}}
 
       result = CookieJar.merge(existing, new)
 
-      assert map_size(result) == 3
-      assert result["session"] == %{value: "session_value"}
-      assert result["prefs"] == %{value: "dark_mode"}
-      assert result["csrf"] == %{value: "token123"}
+      assert result.cookies |> map_size() == 3
+      assert result.cookies["session"] == %{value: "session_value"}
+      assert result.cookies["prefs"] == %{value: "dark_mode"}
+      assert result.cookies["csrf"] == %{value: "token123"}
     end
   end
 
   describe "merge/2 - cookie deletion" do
     test "cookies with max_age=0 are deleted" do
-      existing = %{"session" => %{value: "abc123"}}
-      delete = %{"session" => %{value: "", max_age: 0}}
+      existing = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
+      delete = %CookieJar{cookies: %{"session" => %{value: "", max_age: 0}}}
 
       result = CookieJar.merge(existing, delete)
 
-      assert result == %{}
+      assert result == %CookieJar{cookies: %{}}
     end
 
     test "cookies with negative max_age are deleted" do
-      existing = %{"session" => %{value: "abc123"}}
-      delete = %{"session" => %{value: "", max_age: -1}}
+      existing = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
+      delete = %CookieJar{cookies: %{"session" => %{value: "", max_age: -1}}}
 
       result = CookieJar.merge(existing, delete)
 
-      assert result == %{}
+      assert result == %CookieJar{cookies: %{}}
     end
 
     test "other cookies preserved when one is deleted" do
-      existing = %{
-        "session" => %{value: "session_value"},
-        "prefs" => %{value: "dark_mode"}
+      existing = %CookieJar{
+        cookies: %{
+          "session" => %{value: "session_value"},
+          "prefs" => %{value: "dark_mode"}
+        }
       }
 
-      delete = %{"session" => %{value: "", max_age: 0}}
+      delete = %CookieJar{cookies: %{"session" => %{value: "", max_age: 0}}}
 
       result = CookieJar.merge(existing, delete)
 
-      assert result == %{"prefs" => %{value: "dark_mode"}}
+      assert result == %CookieJar{cookies: %{"prefs" => %{value: "dark_mode"}}}
     end
 
     test "cookies with max_age > 0 are kept" do
-      existing = %{}
-      new = %{"session" => %{value: "abc123", max_age: 3600}}
+      existing = %CookieJar{cookies: %{}}
+      new = %CookieJar{cookies: %{"session" => %{value: "abc123", max_age: 3600}}}
 
       result = CookieJar.merge(existing, new)
 
-      assert result == %{"session" => %{value: "abc123", max_age: 3600}}
+      assert result == %CookieJar{cookies: %{"session" => %{value: "abc123", max_age: 3600}}}
     end
 
     test "cookies without max_age are kept" do
-      existing = %{}
-      new = %{"session" => %{value: "abc123"}}
+      existing = %CookieJar{cookies: %{}}
+      new = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
 
       result = CookieJar.merge(existing, new)
 
-      assert result == %{"session" => %{value: "abc123"}}
+      assert result == %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
     end
   end
 
   describe "put_into_request/2" do
     test "sets Cookie header with single cookie" do
       conn = Plug.Test.conn(:get, "/")
-      cookies = %{"session" => %{value: "abc123"}}
+      cookies = %CookieJar{cookies: %{"session" => %{value: "abc123"}}}
 
       result = CookieJar.put_into_request(conn, cookies)
 
@@ -134,9 +124,11 @@ defmodule PhoenixHtmldriver.CookieJarTest do
     test "sets Cookie header with multiple cookies" do
       conn = Plug.Test.conn(:get, "/")
 
-      cookies = %{
-        "session" => %{value: "abc123"},
-        "prefs" => %{value: "dark"}
+      cookies = %CookieJar{
+        cookies: %{
+          "session" => %{value: "abc123"},
+          "prefs" => %{value: "dark"}
+        }
       }
 
       result = CookieJar.put_into_request(conn, cookies)
@@ -149,19 +141,10 @@ defmodule PhoenixHtmldriver.CookieJarTest do
       assert cookie_header =~ "; "
     end
 
-    test "returns unchanged conn for nil cookies" do
-      conn = Plug.Test.conn(:get, "/")
-
-      result = CookieJar.put_into_request(conn, nil)
-
-      assert result == conn
-      assert Plug.Conn.get_req_header(result, "cookie") == []
-    end
-
     test "returns unchanged conn for empty cookies" do
       conn = Plug.Test.conn(:get, "/")
 
-      result = CookieJar.put_into_request(conn, %{})
+      result = CookieJar.put_into_request(conn, %CookieJar{cookies: %{}})
 
       assert result == conn
       assert Plug.Conn.get_req_header(result, "cookie") == []
@@ -178,15 +161,17 @@ defmodule PhoenixHtmldriver.CookieJarTest do
 
       result = CookieJar.extract(conn)
 
-      assert result == %{"session" => %{value: "abc123", max_age: 3600}}
+      assert result == %CookieJar{
+               cookies: %{"session" => %{value: "abc123", max_age: 3600}}
+             }
     end
 
-    test "returns empty map when no cookies" do
+    test "returns empty CookieJar when no cookies" do
       conn = %Plug.Conn{resp_cookies: %{}}
 
       result = CookieJar.extract(conn)
 
-      assert result == %{}
+      assert result == %CookieJar{cookies: %{}}
     end
   end
 end

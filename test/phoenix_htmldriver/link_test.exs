@@ -1,6 +1,6 @@
 defmodule PhoenixHtmldriver.LinkTest do
   use ExUnit.Case, async: true
-  alias PhoenixHtmldriver.{Link, Session}
+  alias PhoenixHtmldriver.{CookieJar, Link, Session}
 
   @endpoint PhoenixHtmldriver.TestRouter
 
@@ -16,7 +16,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       document: document,
       response: %Plug.Conn{conn | status: 200, resp_body: html, request_path: "/test"},
       endpoint: @endpoint,
-      cookies: %{},
+      cookies: CookieJar.empty(),
       path: "/test"
     }
   end
@@ -34,7 +34,7 @@ defmodule PhoenixHtmldriver.LinkTest do
       link = Link.new(session, "#profile-link")
 
       assert link.session.endpoint == @endpoint
-      assert link.session.cookies == %{}
+      assert link.session.cookies == CookieJar.empty()
       assert link.session.path == "/test"
     end
 

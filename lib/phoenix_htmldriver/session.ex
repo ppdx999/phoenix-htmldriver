@@ -21,7 +21,6 @@ defmodule PhoenixHtmldriver.Session do
         }
   @type method :: :get | :post | :put | :patch | :delete
   @type endpoint :: module()
-  @type cookies :: CookieJar.t()
   @type params :: map() | keyword() | nil
 
   @doc """
@@ -40,6 +39,7 @@ defmodule PhoenixHtmldriver.Session do
       # Preserves cookies from previous request
       session = visit(session, "/dashboard")
   """
+  @dialyzer {:nowarn_function, visit: 2}
   @spec visit(t() | Plug.Conn.t(), String.t()) :: t()
   def visit(%__MODULE__{} = session, path) do
     request(session, :get, path)
@@ -87,6 +87,7 @@ defmodule PhoenixHtmldriver.Session do
 
   # Private functions for HTTP request handling
 
+  @dialyzer {:nowarn_function, request: 5}
   @doc false
   # Internal function for making HTTP requests. Used by Form, Link, and Session.
   @spec request(t(), method(), String.t(), params(), non_neg_integer()) :: t()

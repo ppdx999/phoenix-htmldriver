@@ -1,6 +1,6 @@
 defmodule PhoenixHtmldriver.FormTest do
   use ExUnit.Case, async: true
-  alias PhoenixHtmldriver.{Form, Session}
+  alias PhoenixHtmldriver.{CookieJar, Form, Session}
 
   @endpoint PhoenixHtmldriver.TestRouter
 
@@ -16,7 +16,7 @@ defmodule PhoenixHtmldriver.FormTest do
       document: document,
       response: %Plug.Conn{conn | status: 200, resp_body: html, request_path: "/test"},
       endpoint: @endpoint,
-      cookies: %{},
+      cookies: CookieJar.empty(),
       path: "/test"
     }
   end
@@ -40,7 +40,7 @@ defmodule PhoenixHtmldriver.FormTest do
         "_csrf_token" => "secret123"
       }
       assert form.session.endpoint == @endpoint
-      assert form.session.cookies == %{}
+      assert form.session.cookies == CookieJar.empty()
       assert form.session.path == "/test"
     end
 

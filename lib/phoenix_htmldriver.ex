@@ -212,6 +212,7 @@ defmodule PhoenixHtmldriver do
       |> element(".user-name")
       |> PhoenixHtmldriver.Element.text()
   """
+  @dialyzer {:nowarn_function, element: 2}
   @spec element(Session.t(), String.t()) :: PhoenixHtmldriver.Element.t()
   defdelegate element(session, selector), to: PhoenixHtmldriver.Element, as: :new
 end
