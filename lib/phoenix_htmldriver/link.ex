@@ -105,10 +105,10 @@ defmodule PhoenixHtmldriver.Link do
   clicking the link, including any redirects that were followed.
   """
   @spec click(t()) :: Session.t()
-  def click(%__MODULE__{session: %Session{conn: conn, endpoint: endpoint, cookies: cookies}, node: node} = _link) do
+  def click(%__MODULE__{session: session, node: node} = _link) do
     case attr(node, "href") do
       nil -> raise "Link has no href attribute"
-      href -> Session.request(:get, href, conn, endpoint, cookies)
+      href -> Session.request(session, :get, href)
     end
   end
 

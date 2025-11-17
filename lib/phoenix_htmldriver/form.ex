@@ -231,10 +231,10 @@ defmodule PhoenixHtmldriver.Form do
   form submission, including any redirects that were followed.
   """
   @spec submit(t()) :: Session.t()
-  def submit(%__MODULE__{session: %Session{conn: conn, endpoint: endpoint, cookies: cookies, path: path}, node: node, values: current_values} = _form) do
+  def submit(%__MODULE__{session: session, node: node, values: current_values} = _form) do
     # Get form action and method
     # Per HTML spec, if action is not specified, form submits to current URL
-    action = attr(node, "action") || path
+    action = attr(node, "action") || session.path
     method = (attr(node, "method") || "get") |> String.downcase() |> String.to_atom()
 
     # Validate method - HTML forms only support get and post
@@ -256,7 +256,7 @@ defmodule PhoenixHtmldriver.Form do
 
     # Submit the form
     # Session.request handles method-specific details (query string for GET, body for POST)
-    Session.request(method, action, conn, endpoint, cookies, current_values)
+    Session.request(session, method, action, current_values)
   end
 
   # Helper to get attribute value
