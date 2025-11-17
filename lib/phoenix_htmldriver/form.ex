@@ -217,13 +217,10 @@ defmodule PhoenixHtmldriver.Form do
 
   # Extract name and value from a single form field
   defp extract_field_value(element) do
-    name = get_attribute(element, "name")
-
-    if !name || name == "" do
-      nil
-    else
-      value = extract_value(element)
-      {name, value}
+    case get_attribute(element, "name") do
+      nil -> nil
+      "" -> nil
+      name -> {name, extract_value(element)}
     end
   end
 
