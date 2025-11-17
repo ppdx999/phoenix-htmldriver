@@ -80,12 +80,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec fill(t(), String.t() | atom(), String.t()) :: t()
   def fill(%__MODULE__{values: current_values} = form, field_name, value) do
-    # Normalize field name to string
-    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
-
-    # Update the single field value
-    updated_values = Map.put(current_values, normalized_field_name, value)
-
+    updated_values = Map.put(current_values, normalize_field_name(field_name), value)
     %{form | values: updated_values}
   end
 
@@ -102,8 +97,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec select(t(), String.t() | atom(), String.t()) :: t()
   def select(%__MODULE__{values: current_values} = form, field_name, option_value) do
-    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
-    updated_values = Map.put(current_values, normalized_field_name, option_value)
+    updated_values = Map.put(current_values, normalize_field_name(field_name), option_value)
     %{form | values: updated_values}
   end
 
@@ -120,8 +114,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec check(t(), String.t() | atom()) :: t()
   def check(%__MODULE__{values: current_values} = form, field_name) do
-    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
-    updated_values = Map.put(current_values, normalized_field_name, "on")
+    updated_values = Map.put(current_values, normalize_field_name(field_name), "on")
     %{form | values: updated_values}
   end
 
@@ -138,8 +131,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec uncheck(t(), String.t() | atom()) :: t()
   def uncheck(%__MODULE__{values: current_values} = form, field_name) do
-    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
-    updated_values = Map.delete(current_values, normalized_field_name)
+    updated_values = Map.delete(current_values, normalize_field_name(field_name))
     %{form | values: updated_values}
   end
 
@@ -156,8 +148,7 @@ defmodule PhoenixHtmldriver.Form do
   """
   @spec choose(t(), String.t() | atom(), String.t()) :: t()
   def choose(%__MODULE__{values: current_values} = form, field_name, option_value) do
-    normalized_field_name = if is_atom(field_name), do: Atom.to_string(field_name), else: field_name
-    updated_values = Map.put(current_values, normalized_field_name, option_value)
+    updated_values = Map.put(current_values, normalize_field_name(field_name), option_value)
     %{form | values: updated_values}
   end
 
@@ -234,6 +225,10 @@ defmodule PhoenixHtmldriver.Form do
       [] -> nil
     end
   end
+
+  # Normalize field name to string (atom -> string)
+  defp normalize_field_name(field_name) when is_atom(field_name), do: Atom.to_string(field_name)
+  defp normalize_field_name(field_name) when is_binary(field_name), do: field_name
 
   # Parse form and extract default values from all fields
   defp parse_form_values(form) do
